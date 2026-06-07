@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: genesisai-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: genesis_user
+      POSTGRES_PASSWORD: genesis_password
+      POSTGRES_DB: genesisai
+    ports:
+      - "5433:5432"
+    volumes:
+      - genesisai_pgdata:/var/lib/postgresql/data
+
+volumes:
+  genesisai_pgdata:

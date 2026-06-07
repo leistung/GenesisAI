@@ -1,0 +1,130 @@
+// Prisma Schema for AI Image Generator
+// Database: PostgreSQL (production) / SQLite (development)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+}
+
+// User model - linked to NextAuth
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  image         String?
+  emailVerified DateTime?
+  password      String?   // For credentials (email/password) auth
+  
+  // Credits system
+  credits       Int       @default(10)  // Free tier: 10 credits/day
+  creditsResetAt DateTime @default(now()) // Daily reset timestamp
+  
+  // Subscription
+  subscriptionTier String?  // 'free', 'premium', 'ultimate'
+  paddleCustomerId String?  @unique
+  paddleSubscriptionId String? @unique
+  
+  // Relations
+  accounts      Account[]
+  sessions      Session[]
+  images        Image[]
+  orders        Order[]
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+// NextAuth required models
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// Generated images
+model Image {
+  id          String   @id @default(cuid())
+  userId      String?
+  prompt      String
+  negativePrompt String?
+  model       String
+  aspectRatio String
+  style       String?
+  color       String?
+  lighting    String?
+  composition String?
+  imageUrl    String
+  thumbnailUrl String?
+  isPublic    Boolean  @default(false)
+  
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  
+  createdAt   DateTime @default(now())
+}
+
+// Orders for Paddle payments
+model Order {
+  id              String   @id @default(cuid())
+  userId          String
+  paddleOrderId   String   @unique
+  paddleTransactionId String?
+  status          String   @default("pending") // pending, completed, failed, refunded
+  amount          Float
+  currency        String   @default("USD")
+  creditsAdded    Int      // How many credits this order adds
+  
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// Pricing plans (seeded data)
+model Plan {
+  id              String   @id @default(cuid())
+  name            String   @unique // 'free', 'premium', 'ultimate'
+  displayName     String
+  price           Float
+  currency        String   @default("USD")
+  credits         Int      // Credits per month
+  paddleProductId String?  @unique
+  paddlePriceId   String?  @unique
+  
+  features        String   // JSON string of features list
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
