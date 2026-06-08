@@ -4,8 +4,10 @@ import Credentials from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "./db";
 import bcrypt from "bcryptjs";
+import { logger } from "./logger";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  trustHost: true,
   adapter: PrismaAdapter(prisma),
   providers: [
     Google({
@@ -19,7 +21,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
+        logger.debug("[Auth] authorize called", { email: credentials?.email });
+
         if (!credentials?.email || !credentials?.password) {
+          logger.debug("[Auth] missing email or password");
           return null;
         }
 
@@ -28,6 +33,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         });
 
         if (!user || !user.password) {
+          logger.debug("[Auth] user not found or no password", { email: credentials.email as string });
           return null;
         }
 
@@ -37,9 +43,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         );
 
         if (!isValid) {
+          logger.debug("[Auth] incorrect password", { email: credentials.email as string });
           return null;
         }
 
+        logger.debug("[Auth] login validation successful", { userId: user.id, email: user.email });
         return {
           id: user.id,
           email: user.email,

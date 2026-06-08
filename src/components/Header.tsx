@@ -173,13 +173,21 @@ export default function Header() {
                 </button>
               </>
             ) : (
-              <Link
-                href="/signin"
-                className="flex items-center gap-2 px-5 py-2 text-sm bg-gradient-to-r from-purple-600 to-pink-500 text-white rounded-xl hover:from-purple-700 hover:to-pink-600 transition-all shadow-lg shadow-purple-500/25 hover:shadow-xl hover:shadow-purple-500/30"
-              >
-                <User className="w-4 h-4" />
-                Sign In
-              </Link>
+              <div className="flex items-center gap-3">
+                <Link
+                  href="/signin"
+                  className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
+                >
+                  Sign In
+                </Link>
+                <Link
+                  href="/signup"
+                  className="flex items-center gap-2 px-5 py-2 text-sm bg-gradient-to-r from-purple-600 to-pink-500 text-white rounded-xl hover:from-purple-700 hover:to-pink-600 transition-all shadow-lg shadow-purple-500/25 hover:shadow-xl hover:shadow-purple-500/30"
+                >
+                  <User className="w-4 h-4" />
+                  Sign Up
+                </Link>
+              </div>
             )}
           </div>
 
@@ -281,13 +289,22 @@ export default function Header() {
                     </button>
                   </>
                 ) : (
-                  <Link
-                    href="/signin"
-                    onClick={() => setIsMenuOpen(false)}
-                    className="block w-full px-4 py-2.5 text-sm bg-gradient-to-r from-purple-600 to-pink-500 text-white rounded-xl text-center"
-                  >
-                    Sign In
-                  </Link>
+                  <div className="space-y-2">
+                    <Link
+                      href="/signin"
+                      onClick={() => setIsMenuOpen(false)}
+                      className="block w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl text-center border border-gray-200"
+                    >
+                      Sign In
+                    </Link>
+                    <Link
+                      href="/signup"
+                      onClick={() => setIsMenuOpen(false)}
+                      className="block w-full px-4 py-2.5 text-sm bg-gradient-to-r from-purple-600 to-pink-500 text-white rounded-xl text-center"
+                    >
+                      Sign Up
+                    </Link>
+                  </div>
                 )}
               </div>
             </nav>

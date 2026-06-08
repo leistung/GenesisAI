@@ -5,7 +5,7 @@ import type { NextRequest } from "next/server";
 const protectedRoutes = ["/dashboard", "/settings"];
 
 // Routes that should redirect away if already authenticated
-const authRoutes = ["/signin"];
+const authRoutes = ["/signin", "/signup"];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
