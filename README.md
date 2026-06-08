@@ -1,4 +1,4 @@
-# 🎨 AI Image Generator
+# GenesisAI
 
 > A professional, full-stack AI image generation platform with multi-style artistic creation, community sharing, and subscription-based payment system.
 
@@ -10,92 +10,62 @@
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-4-38bdf8?logo=tailwindcss)](https://tailwindcss.com/)
 [![Prisma](https://img.shields.io/badge/Prisma-6-2d3748?logo=prisma)](https://www.prisma.io/)
 [![NextAuth](https://img.shields.io/badge/NextAuth-v5-8b5cf6)](https://authjs.dev/)
+[![Creem](https://img.shields.io/badge/Payment-Creem-00c389)](https://creem.io/)
 [![License](https://img.shields.io/badge/License-MIT-green)](./LICENSE)
 
 </div>
 
 ---
 
-## 📸 Screenshots
+## Features
 
-### Home Page
-![Home Page](./assets/home.png)
-
-### AI Generation - Anime Style
-![Anime Generation](./assets/generate-anime.png)
-
-### AI Generation - Portrait Enhancement
-![Portrait Enhancement](./assets/generate-portrait.png)
-
-### AI Generation - Landscape Enhancement
-![Landscape Enhancement](./assets/generate-landscape.png)
-
-### AI Generation - Creative Art
-![Creative Art](./assets/generate-creative.png)
-
-### AI Generation - Product Image
-![Product Image](./assets/generate-product.png)
-
-### Pricing Plans
-![Pricing](./assets/pricing.png)
-
-### User Dashboard
-![Dashboard](./assets/dashboard.png)
-
-### Community Gallery
-![Community](./assets/community.png)
-
-> **Tip:** Take screenshots of each page at `http://localhost:3000` and save them to the `assets/` folder with the filenames shown above.
-
----
-
-## ✨ Features
-
-### 🎨 AI-Powered Generation
+### AI-Powered Generation
 - **5 Artistic Styles** — Anime, Portrait Enhancement, Landscape Enhancement, Creative Art, Product Image
 - **Hidden System Prompts** — Each style has optimized system prompts for professional results
 - **Multiple Models** — Configurable AI models per style (Stability AI / Replicate / OpenAI)
 - **Real-time Progress** — SSE streaming for live generation status updates
 - **Reference Images** — Upload reference images to guide AI generation
 
-### 👤 User System
-- **Google OAuth Login** — Secure one-click sign in with Google accounts
+### User System
+- **Email & Google OAuth Login** — Secure sign in with email/password or Google accounts
 - **Credit System** — Free daily credits + premium subscription credits
 - **User Dashboard** — View, download, delete generated images
 - **Image History** — Full generation history with prompts and timestamps
 
-### 🌐 Community
+### Community
 - **Public Gallery** — Share your generations with the community
 - **Style Filtering** — Browse community works by artistic style
+- **Likes & Bookmarks** — Like and bookmark community images
 - **One-Click Publish** — Toggle images between private and public
 
-### 💰 Monetization
+### Monetization
 - **Subscription Plans** — Free, Premium, and Ultimate tiers
-- **Paddle Payments** — MoR (Merchant of Record) with webhook verification
+- **Creem Payments** — MoR (Merchant of Record) with webhook verification
 - **Monthly/Yearly Billing** — Flexible billing cycles with annual discount
 
-### 🛡️ Security
+### Security
 - **Server-side API Keys** — AI keys never exposed to client
 - **NextAuth Sessions** — Encrypted JWT-based authentication
-- **Paddle Signature Verification** — Timing-safe webhook validation
-- **Rate Limiting** — API protection against abuse
+- **Creem Signature Verification** — HMAC-SHA256 webhook validation with timing-safe comparison
+- **Rate Limiting** — API protection against abuse (Upstash Redis / memory fallback)
 - **Zod Validation** — Schema-based input validation
 - **User Authorization** — Users can only access their own data
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 
 - **Node.js** 18+
 - **npm** 9+
+- **Docker** (for PostgreSQL)
 
 ### 1. Clone & Install
 
 ```bash
 git clone <your-repo-url>
-cd image-generate
+cd GenesisAI
 npm install
 ```
 
@@ -108,32 +78,50 @@ cp .env.example .env.local
 Edit `.env.local` with your credentials:
 
 ```env
-# Database
-DATABASE_URL="file:./dev.db"
+# Database (PostgreSQL via Docker)
+DATABASE_URL="postgresql://genesis_user:genesis_password@localhost:5433/genesisai"
 
-# NextAuth
-NEXTAUTH_URL="http://localhost:3000"
-NEXTAUTH_SECRET="your-secret-here"
+# NextAuth v5
+AUTH_SECRET="your-secret-here"
 
 # Google OAuth
 GOOGLE_CLIENT_ID="your-google-client-id"
 GOOGLE_CLIENT_SECRET="your-google-client-secret"
 
-# Paddle Payments
-PADDLE_VENDOR_ID="your-paddle-vendor-id"
-PADDLE_API_KEY="your-paddle-api-key"
-PADDLE_PUBLIC_KEY="your-paddle-public-key"
-PADDLE_WEBHOOK_SECRET="your-paddle-webhook-secret"
-PADDLE_ENV="sandbox"
+# Creem Payments
+CREEM_API_KEY="your-creem-api-key"
+CREEM_WEBHOOK_SECRET="your-creem-webhook-secret"
 
-# AI API (at least one required)
-STABILITY_API_KEY="your-stability-api-key"
+# AI Provider: "placeholder" | "stability" | "replicate" | "openai"
+AI_PROVIDER="placeholder"
+STABILITY_API_KEY=""
+OPENAI_API_KEY=""
+REPLICATE_API_TOKEN=""
+
+# Upstash Redis (optional, for production rate limiting)
+UPSTASH_REDIS_REST_URL=""
+UPSTASH_REDIS_REST_TOKEN=""
+
+# S3/R2 Storage (optional, for image persistence)
+S3_ENDPOINT=""
+S3_ACCESS_KEY_ID=""
+S3_SECRET_ACCESS_KEY=""
+S3_BUCKET_NAME="genesisai-images"
+S3_REGION="auto"
+S3_PUBLIC_URL=""
 ```
 
 ### 3. Database Setup
 
 ```bash
+# Start PostgreSQL via Docker
+docker compose up -d
+
+# Push schema to database
 npm run db:push
+
+# Seed with default plans
+npm run db:seed
 ```
 
 ### 4. Start Dev Server
@@ -146,59 +134,77 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
-image-generate/
+GenesisAI/
 ├── assets/                        # Screenshots and static assets
 ├── prisma/
-│   ├── schema.prisma              # Database schema (User, Image, Order, Plan)
-│   └── seed.ts                    # Database seeder
+│   ├── schema.prisma              # Database schema (User, Image, Order, Plan, Like, Bookmark)
+│   ├── seed.ts                    # Database seeder
+│   └── seed-ai-models.ts          # AI model seeder
 ├── src/
 │   ├── app/
 │   │   ├── api/
-│   │   │   ├── auth/[...nextauth]/ # NextAuth v5 handler
-│   │   │   ├── credits/            # Credits management API
-│   │   │   ├── generate/           # SSE image generation API
+│   │   │   ├── auth/
+│   │   │   │   ├── [...nextauth]/ # NextAuth v5 handler
+│   │   │   │   └── register/      # User registration API
+│   │   │   ├── credits/           # Credits management API
+│   │   │   ├── creem/
+│   │   │   │   ├── checkout/      # Creem checkout session
+│   │   │   │   ├── portal/        # Creem customer portal
+│   │   │   │   ├── products/      # Creem product listings
+│   │   │   │   └── webhook/       # Creem webhook handler
+│   │   │   ├── generate/          # SSE image generation API
 │   │   │   ├── images/
-│   │   │   │   ├── route.ts        # Image CRUD + community query
-│   │   │   │   └── [id]/route.ts   # Image publish/delete
-│   │   │   └── paddle/
-│   │   │       ├── products/       # Paddle product listings
-│   │   │       └── webhook/        # Paddle webhook handler
-│   │   ├── auth/error/             # Auth error page
-│   │   ├── dashboard/              # User dashboard page
+│   │   │   │   ├── route.ts       # Image CRUD + community query
+│   │   │   │   └── [id]/route.ts  # Image publish/delete
+│   │   │   ├── models/            # AI models API
+│   │   │   └── v1/
+│   │   │       ├── bookmarks/     # Bookmark list / add / remove
+│   │   │       ├── images/[id]/like/  # Like / unlike
+│   │   │       └── user/          # Profile & password update
+│   │   ├── auth/error/            # Auth error page
+│   │   ├── community/             # Community gallery page
+│   │   ├── dashboard/             # User dashboard page
 │   │   ├── generate/
-│   │   │   ├── anime/              # Anime style generation
-│   │   │   ├── portrait/           # Portrait enhancement
-│   │   │   ├── landscape/          # Landscape enhancement
-│   │   │   ├── creative/           # Creative art generation
-│   │   │   └── product/            # Product photography
-│   │   ├── pricing/                # Subscription pricing page
-│   │   ├── signin/                 # Sign in page
-│   │   ├── layout.tsx              # Root layout
-│   │   └── page.tsx                # Home page
+│   │   │   ├── anime/             # Anime style generation
+│   │   │   ├── portrait/          # Portrait enhancement
+│   │   │   ├── landscape/         # Landscape enhancement
+│   │   │   ├── creative/          # Creative art generation
+│   │   │   └── product/           # Product photography
+│   │   ├── pricing/               # Subscription pricing page
+│   │   ├── settings/              # User settings page
+│   │   ├── signin/                # Sign in page
+│   │   ├── signup/                # Sign up page
+│   │   ├── layout.tsx             # Root layout
+│   │   └── page.tsx               # Home page
 │   ├── components/
-│   │   ├── providers/              # SessionProvider
-│   │   ├── Header.tsx              # Global navigation bar
-│   │   ├── Footer.tsx              # Global footer
-│   │   ├── StyleGeneratorPage.tsx  # Shared generation page component
-│   │   └── ImageGenerator.tsx      # Legacy generator component
-│   └── lib/
-│       ├── auth.ts                 # NextAuth configuration
-│       ├── db.ts                   # Prisma client singleton
-│       ├── styles.ts               # Style configurations & system prompts
-│       └── rate-limit.ts           # Rate limiting utility
-├── .env.example                    # Environment template
-├── next.config.ts                  # Next.js configuration
+│   │   ├── providers/             # SessionProvider
+│   │   ├── Header.tsx             # Global navigation bar
+│   │   ├── Footer.tsx             # Global footer
+│   │   ├── StyleGeneratorPage.tsx # Shared generation page component
+│   │   └── ...                    # Other UI components
+│   ├── lib/
+│   │   ├── ai-service.ts          # AI provider abstraction
+│   │   ├── auth.ts                # NextAuth v5 configuration
+│   │   ├── credits.ts             # Credit check/consume/refill logic
+│   │   ├── db.ts                  # Prisma client singleton
+│   │   ├── logger.ts              # Structured logger
+│   │   ├── rate-limit.ts          # Rate limiting utility
+│   │   ├── storage.ts             # S3/R2 storage client
+│   │   └── styles.ts              # Style configurations & system prompts
+│   └── middleware.ts              # Auth route guards
+├── .env.example                   # Environment template
+├── docker-compose.yml             # PostgreSQL Docker config
+├── next.config.ts                 # Next.js configuration
 ├── package.json
-├── tailwind.config.ts
 └── tsconfig.json
 ```
 
 ---
 
-## 🎨 Style Configurations
+## Style Configurations
 
 Each AI generation style has its own optimized configuration defined in [src/lib/styles.ts](./src/lib/styles.ts):
 
@@ -212,25 +218,27 @@ Each AI generation style has its own optimized configuration defined in [src/lib
 
 ---
 
-## 🗄️ Database Models
+## Database Models
 
 | Model | Description |
 |-------|-------------|
 | **User** | User accounts with credits, subscription tier, and OAuth info |
 | **Image** | Generated images with prompt, style, URL, and publish status |
-| **Order** | Payment transaction records from Paddle |
+| **Order** | Payment transaction records from Creem |
 | **Plan** | Subscription plan definitions (Free / Premium / Ultimate) |
+| **Like** | Like relationships (prevents duplicate likes) |
+| **Bookmark** | Bookmark relationships (user ↔ image) |
 | **Account** | NextAuth OAuth provider accounts |
 | **Session** | NextAuth user sessions |
 | **VerificationToken** | NextAuth verification tokens |
 
 ---
 
-## 🔧 Available Scripts
+## Available Scripts
 
 | Script | Description |
 |--------|-------------|
-| `npm run dev` | Start development server with Turbopack |
+| `npm run dev` | Start development server on 0.0.0.0:3000 with Turbopack |
 | `npm run build` | Generate Prisma client + build for production |
 | `npm run start` | Start production server |
 | `npm run lint` | Run ESLint |
@@ -241,7 +249,7 @@ Each AI generation style has its own optimized configuration defined in [src/lib
 
 ---
 
-## 🔌 External Services Setup
+## External Services Setup
 
 ### Google OAuth
 1. Visit [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
@@ -249,12 +257,12 @@ Each AI generation style has its own optimized configuration defined in [src/lib
 3. Add redirect URI: `http://localhost:3000/api/auth/callback/google`
 4. Copy Client ID and Secret to `.env.local`
 
-### Paddle Payments
-1. Sign up at [Paddle](https://vendors.paddle.com)
-2. Get Vendor ID, API Key, and Public Key from sandbox settings
-3. Create products with monthly/yearly price IDs
-4. Configure webhook: `https://your-domain.com/api/paddle/webhook`
-5. Set webhook secret for signature verification
+### Creem Payments
+1. Sign up at [Creem](https://creem.io)
+2. Get API Key from dashboard settings
+3. Create products with monthly/yearly pricing
+4. Configure webhook: `https://your-domain.com/api/creem/webhook`
+5. Set webhook secret for HMAC-SHA256 signature verification
 
 ### AI APIs
 - **[Stability AI](https://platform.stability.ai)** — Recommended for general image generation
@@ -263,7 +271,7 @@ Each AI generation style has its own optimized configuration defined in [src/lib
 
 ---
 
-## 🚢 Deployment
+## Deployment
 
 ### Vercel (Recommended)
 ```bash
@@ -280,6 +288,6 @@ Requires PostgreSQL for production database.
 
 ---
 
-## 📄 License
+## License
 
-MIT © AI Image Generator
+MIT © GenesisAI

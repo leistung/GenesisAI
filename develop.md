@@ -1,405 +1,423 @@
-# GenesisAI 开发文档 — 路由与 API 设计
+# GenesisAI Development Documentation — Routes & API Design
 
-## 一、技术栈概览
+## 1. Tech Stack Overview
 
-| 层级 | 技术 | 说明 |
-|------|------|------|
-| 框架 | Next.js 16 (App Router) | 基于 React 19，使用 Turbopack |
-| 语言 | TypeScript | 全栈类型安全 |
-| 数据库 | PostgreSQL + Prisma ORM | 通过 Docker 运行 |
-| 认证 | NextAuth.js v5 (Auth.js) | 支持 Credentials + Google OAuth |
-| 支付 | Creem (creem.io) | 订阅与一次性购买，Merchant of Record |
-| 存储 | S3/R2 兼容 | 图片持久化存储 |
-| 限流 | @upstash/ratelimit + Redis | 生产级限流，开发环境内存回退 |
-| 样式 | Tailwind CSS v4 | 原子化 CSS |
-| 验证 | Zod | 请求体 schema 校验 |
-| 日志 | 自定义 logger | 结构化日志，API 请求追踪 |
+| Layer | Technology | Description |
+|-------|-----------|-------------|
+| Framework | Next.js 16 (App Router) | Based on React 19, using Turbopack |
+| Language | TypeScript | Full-stack type safety |
+| Database | PostgreSQL + Prisma ORM | Running via Docker |
+| Auth | NextAuth.js v5 (Auth.js) | Credentials + Google OAuth |
+| Payment | Creem (creem.io) | Subscription & one-time purchase, Merchant of Record |
+| Storage | S3/R2 compatible | Image persistence |
+| Rate Limiting | @upstash/ratelimit + Redis | Production rate limiting, memory fallback in dev |
+| Styling | Tailwind CSS v4 | Atomic CSS |
+| Validation | Zod | Request body schema validation |
+| Logging | Custom logger | Structured logging, API request tracing |
 
 ---
 
-## 二、前端路由设计
+## 2. Frontend Routes
 
-### 路由结构总览
+### Route Structure
 
 ```
 src/app/
-├── layout.tsx                    # 根布局（SessionProvider + Header + Footer）
-├── page.tsx                      # 首页 /
+├── layout.tsx                    # Root layout (SessionProvider + Header + Footer)
+├── page.tsx                      # Home page /
 ├── signin/
-│   ├── page.tsx                  # 登录/注册页 /signin
-│   └── SignInContent.tsx         # 登录/注册客户端组件
+│   ├── page.tsx                  # Sign in page /signin
+│   └── SignInContent.tsx         # Sign in/register client component
+├── signup/
+│   └── page.tsx                  # Sign up page /signup (reuses SignInContent)
 ├── auth/
 │   └── error/
-│       └── page.tsx              # 认证错误页 /auth/error
+│       └── page.tsx              # Auth error page /auth/error
 ├── dashboard/
-│   └── page.tsx                  # 用户仪表盘 /dashboard（需登录，分页加载）
+│   └── page.tsx                  # User dashboard /dashboard (auth required, paginated)
 ├── community/
-│   └── page.tsx                  # 社区画廊 /community（公开，分页加载）
+│   └── page.tsx                  # Community gallery /community (public, paginated)
 ├── pricing/
-│   └── page.tsx                  # 定价页 /pricing（公开，Creem 结账）
+│   └── page.tsx                  # Pricing page /pricing (public, Creem checkout)
 ├── settings/
-│   └── page.tsx                  # 用户设置 /settings（需登录，修改密码/资料）
+│   └── page.tsx                  # User settings /settings (auth required, password/profile)
 └── generate/
-    ├── anime/page.tsx            # 动漫风格生成 /generate/anime
-    ├── portrait/page.tsx         # 肖像风格生成 /generate/portrait
-    ├── landscape/page.tsx        # 风景风格生成 /generate/landscape
-    ├── creative/page.tsx         # 创意风格生成 /generate/creative
-    └── product/page.tsx          # 产品风格生成 /generate/product
+    ├── anime/page.tsx            # Anime style generation /generate/anime
+    ├── portrait/page.tsx         # Portrait style generation /generate/portrait
+    ├── landscape/page.tsx        # Landscape style generation /generate/landscape
+    ├── creative/page.tsx         # Creative style generation /generate/creative
+    └── product/page.tsx          # Product style generation /generate/product
 ```
 
-### 页面详细说明
+### Page Details
 
-| 路由 | 认证 | 组件 | 说明 |
-|------|------|------|------|
-| `/` | 否 | Hero + Gallery + StyleTemplates + UseCases + Features + Testimonials + FAQ | 首页 |
-| `/signin` | 否（已登录重定向） | SignInContent | 登录/注册页 |
-| `/auth/error` | 否 | AuthError | 认证错误提示页 |
-| `/dashboard` | 是（Middleware 守卫） | DashboardPage | 仪表盘，积分/订阅/图片，分页加载 |
-| `/community` | 否 | CommunityPage | 社区画廊，分页加载 |
-| `/pricing` | 否 | PricingPage | 定价页，Creem Checkout 跳转 |
-| `/settings` | 是（Middleware 守卫） | SettingsPage | 修改密码/资料 |
-| `/generate/*` | 否 | StyleGeneratorPage | 5 种风格 AI 图片生成 |
+| Route | Auth | Component | Description |
+|-------|------|-----------|-------------|
+| `/` | No | Hero + Gallery + StyleTemplates + UseCases + Features + Testimonials + FAQ | Home page |
+| `/signin` | No (redirects if logged in) | SignInContent | Sign in page |
+| `/signup` | No (redirects if logged in) | SignInContent (register mode) | Sign up page |
+| `/auth/error` | No | AuthError | Auth error page |
+| `/dashboard` | Yes (Middleware guard) | DashboardPage | Dashboard with credits/subscription/images, paginated |
+| `/community` | No | CommunityPage | Community gallery, paginated |
+| `/pricing` | No | PricingPage | Pricing page, Creem Checkout redirect |
+| `/settings` | Yes (Middleware guard) | SettingsPage | Change password/profile |
+| `/generate/*` | No | StyleGeneratorPage | 5 style AI image generation |
 
-### 设计要点
+### Design Notes
 
-- **Middleware 服务端守卫**：`/dashboard` 和 `/settings` 在服务端拦截未认证请求，避免客户端闪现
-- **已登录用户访问 `/signin` 自动重定向**到 `/dashboard`
-- **5 个生成页面共用 StyleGeneratorPage 组件**，通过 `styleConfigs` 配置差异化
-- **根布局统一提供 SessionProvider**，所有页面共享会话状态
+- **Middleware server-side guards**: `/dashboard` and `/settings` intercept unauthenticated requests server-side, preventing client-side flash
+- **Logged-in users accessing `/signin` or `/signup` are automatically redirected** to `/dashboard`
+- **5 generation pages share the StyleGeneratorPage component**, differentiated via `styleConfigs`
+- **Root layout provides SessionProvider**, all pages share session state
 
 ---
 
-## 三、后端 API 设计
+## 3. Backend API Design
 
-### API 结构总览
+### API Structure
 
 ```
 src/app/api/
 ├── auth/
-│   ├── [...nextauth]/route.ts    # NextAuth 认证端点
-│   └── register/route.ts         # 用户注册
+│   ├── [...nextauth]/route.ts    # NextAuth auth endpoints
+│   └── register/route.ts         # User registration
 ├── generate/
-│   └── route.ts                  # AI 图片生成（SSE 流式，多 AI 提供商）
+│   └── route.ts                  # AI image generation (SSE streaming, multi-provider)
 ├── images/
-│   ├── route.ts                  # 图片列表（游标分页）
-│   └── [id]/route.ts             # 单张图片操作（更新/删除，含 S3 删除）
+│   ├── route.ts                  # Image list (cursor pagination)
+│   └── [id]/route.ts             # Single image operations (update/delete, incl. S3 delete)
 ├── credits/
-│   └── route.ts                  # 积分查询（用户）/ 充值（仅管理员）
+│   └── route.ts                  # Credits query (user) / top-up (admin only)
 ├── creem/
-│   ├── webhook/route.ts          # Creem 支付回调
-│   ├── checkout/route.ts         # 创建 Creem 结账会话
-│   ├── products/route.ts         # Creem 产品/套餐列表
-│   └── portal/route.ts           # Creem 客户门户（管理订阅）
+│   ├── webhook/route.ts          # Creem payment webhook
+│   ├── checkout/route.ts         # Create Creem checkout session
+│   ├── products/route.ts         # Creem products/plans list
+│   └── portal/route.ts           # Creem customer portal (manage subscriptions)
+├── models/
+│   └── route.ts                  # Available AI models
 └── v1/
     ├── user/
-    │   ├── profile/route.ts      # 修改用户资料
-    │   └── password/route.ts     # 修改密码
+    │   ├── profile/route.ts      # Update user profile
+    │   ├── password/route.ts     # Change password
+    │   └── has-password/route.ts # Check if user has password (OAuth users don't)
     ├── bookmarks/
-    │   ├── route.ts              # 收藏列表 / 添加收藏
-    │   └── [id]/route.ts         # 取消收藏
+    │   ├── route.ts              # Bookmark list / add bookmark
+    │   └── [id]/route.ts         # Remove bookmark
     └── images/
         └── [id]/
-            └── like/route.ts     # 点赞 / 取消点赞
+            └── like/route.ts     # Like / unlike
 ```
 
-### API 详细说明
+### API Details
 
 ---
 
-#### 1. 认证模块
+#### 1. Authentication Module
 
-##### `POST /api/auth/register` — 用户注册
+##### `POST /api/auth/register` — User Registration
 
-| 项目 | 说明 |
-|------|------|
-| 认证 | 无需 |
-| 请求体 | `{ name: string, email: string, password: string }` |
-| 校验 | Zod: name 1-50字符, email 格式, password ≥ 6字符 |
-| 成功 | `201 { message, user: { id, email, name } }` |
-| 失败 | `400` 校验失败 / `409` 邮箱已存在 / `500` 服务器错误 |
+| Item | Description |
+|------|-------------|
+| Auth | None |
+| Body | `{ name: string, email: string, password: string }` |
+| Validation | Zod: name 1-50 chars, email format, password >= 6 chars |
+| Success | `201 { message, user: { id, email, name } }` |
+| Failure | `400` validation failed / `409` email exists / `500` server error |
 
-##### `GET|POST /api/auth/[...nextauth]` — NextAuth 认证
+##### `GET|POST /api/auth/[...nextauth]` — NextAuth Authentication
 
-| 项目 | 说明 |
-|------|------|
-| 功能 | 登录、登出、OAuth 回调、Session 获取 |
-| Providers | Google OAuth + Credentials (邮箱密码) |
-| Session | JWT 策略 |
-| 自定义字段 | token 携带 id, credits, subscriptionTier, creemCustomerId, role |
+| Item | Description |
+|------|-------------|
+| Function | Login, logout, OAuth callback, session retrieval |
+| Providers | Google OAuth + Credentials (email/password) |
+| Session | JWT strategy |
+| Custom fields | token carries id, credits, subscriptionTier, creemCustomerId, role |
 
 ---
 
-#### 2. 图片生成模块
+#### 2. Image Generation Module
 
-##### `POST /api/generate` — AI 图片生成
+##### `POST /api/generate` — AI Image Generation
 
-| 项目 | 说明 |
-|------|------|
-| 认证 | 可选（未登录也可生成，但图片标记为公开） |
-| 限流 | 10 次/分钟（Upstash Redis / 内存回退） |
-| 请求体 | `{ prompt, negativePrompt?, model?, aspectRatio?, style?, color?, lighting?, composition?, fastMode? }` |
-| 校验 | Zod: prompt 1-2000字符, negativePrompt ≤ 1000字符 |
-| 响应 | SSE (text/event-stream) 流式返回 |
-| 积分 | 登录用户消耗 1 积分，不足返回 `402`；失败自动退还 |
-| AI 提供商 | 通过 `AI_PROVIDER` 环境变量选择：`placeholder` / `stability` / `replicate` / `openai` |
-| 存储 | 如配置 S3/R2，生成图片自动上传 |
+| Item | Description |
+|------|-------------|
+| Auth | Optional (unauthenticated users can generate, images marked public) |
+| Rate limit | 10 req/min (Upstash Redis / memory fallback) |
+| Body | `{ prompt, negativePrompt?, model?, aspectRatio?, style?, color?, lighting?, composition?, fastMode? }` |
+| Validation | Zod: prompt 1-2000 chars, negativePrompt <= 1000 chars |
+| Response | SSE (text/event-stream) streaming |
+| Credits | Authenticated users consume 1 credit, `402` if insufficient; auto-refund on failure |
+| AI Provider | Selected via `AI_PROVIDER` env: `placeholder` / `stability` / `replicate` / `openai` |
+| Storage | Auto-upload to S3/R2 if configured |
 
-**支持的 AI 提供商：**
+**Supported AI Providers:**
 
-| 提供商 | 环境变量 | 说明 |
-|--------|----------|------|
-| placeholder | `AI_PROVIDER="placeholder"` | 开发模式，返回 picsum 占位图 |
+| Provider | Env Variable | Description |
+|----------|-------------|-------------|
+| placeholder | `AI_PROVIDER="placeholder"` | Dev mode, returns picsum placeholder |
 | Stability AI | `AI_PROVIDER="stability"` + `STABILITY_API_KEY` | Stable Image API |
-| Replicate | `AI_PROVIDER="replicate"` + `REPLICATE_API_TOKEN` | SDXL 等模型，轮询等待 |
+| Replicate | `AI_PROVIDER="replicate"` + `REPLICATE_API_TOKEN` | SDXL models, polling |
 | OpenAI | `AI_PROVIDER="openai"` + `OPENAI_API_KEY` | DALL-E 3 |
 
 ---
 
-#### 3. 图片管理模块
+#### 3. Image Management Module
 
-##### `GET /api/images` — 获取图片列表（游标分页）
+##### `GET /api/images` — Get Image List (Cursor Pagination)
 
-| 项目 | 说明 |
-|------|------|
-| 认证 | 公开图片无需认证；用户图片需要认证 |
-| 参数 | `?public=true&style=anime&limit=20&cursor=last_image_id` |
-| 分页 | 游标分页（cursor-based），默认 20 条/页，最多 50 条 |
-| 成功 | `200 { images: [...], nextCursor: string|null }` |
-| 失败 | `401` 未认证 / `500` 服务器错误 |
+| Item | Description |
+|------|-------------|
+| Auth | Public images: none; User images: required |
+| Params | `?public=true&style=anime&limit=20&cursor=last_image_id` |
+| Pagination | Cursor-based, default 20/page, max 50 |
+| Success | `200 { images: [...], nextCursor: string\|null }` |
+| Failure | `401` unauthorized / `500` server error |
 
-##### `PATCH /api/images/:id` — 更新图片
+##### `PATCH /api/images/:id` — Update Image
 
-| 项目 | 说明 |
-|------|------|
-| 认证 | 需要（仅能更新自己的图片） |
-| 请求体 | `{ isPublic: boolean }` |
-| 成功 | `200 { success: true, image }` |
+| Item | Description |
+|------|-------------|
+| Auth | Required (own images only) |
+| Body | `{ isPublic: boolean }` |
+| Success | `200 { success: true, image }` |
 
-##### `DELETE /api/images/:id` — 删除图片
+##### `DELETE /api/images/:id` — Delete Image
 
-| 项目 | 说明 |
-|------|------|
-| 认证 | 需要（仅能删除自己的图片） |
-| 存储 | 同时从 S3/R2 删除图片文件（如已配置） |
-| 成功 | `200 { success: true }` |
-
----
-
-#### 4. 积分模块
-
-##### `GET /api/credits` — 查询积分
-
-| 项目 | 说明 |
-|------|------|
-| 认证 | 需要 |
-| 成功 | `200 { credits, subscriptionTier }` |
-
-##### `POST /api/credits` — 充值积分（仅管理员）
-
-| 项目 | 说明 |
-|------|------|
-| 认证 | 需要，且 `role === "admin"` |
-| 请求体 | `{ userId: string, amount: number }` |
-| 说明 | 普通用户积分增加通过 Creem Webhook 自动触发 |
-| 失败 | `403` 非管理员 |
+| Item | Description |
+|------|-------------|
+| Auth | Required (own images only) |
+| Storage | Also deletes from S3/R2 if configured |
+| Success | `200 { success: true }` |
 
 ---
 
-#### 5. Creem 支付模块
+#### 4. Credits Module
 
-##### `POST /api/creem/checkout` — 创建结账会话
+##### `GET /api/credits` — Query Credits
 
-| 项目 | 说明 |
-|------|------|
-| 认证 | 需要 |
-| 请求体 | `{ productId, successUrl?, cancelUrl? }` |
-| 成功 | `200 { checkoutUrl, checkoutId }` |
-| 说明 | 前端跳转到 `checkoutUrl` 完成 Creem 托管支付 |
+| Item | Description |
+|------|-------------|
+| Auth | Required |
+| Success | `200 { credits, subscriptionTier }` |
 
-##### `GET /api/creem/products` — 获取产品/套餐列表
+##### `POST /api/credits` — Top Up Credits (Admin Only)
 
-| 项目 | 说明 |
-|------|------|
-| 认证 | 无需 |
-| 成功 | `200 { plans: [...] }` |
-
-##### `POST /api/creem/portal` — 创建客户门户会话
-
-| 项目 | 说明 |
-|------|------|
-| 认证 | 需要（且已有 Creem 订阅） |
-| 成功 | `200 { portalUrl }` |
-| 说明 | 用户可管理订阅、取消、更新支付方式 |
-
-##### `POST /api/creem/webhook` — Creem 支付回调
-
-| 项目 | 说明 |
-|------|------|
-| 认证 | Creem 签名验证（`creem-signature` 头，HMAC-SHA256） |
-| 安全 | `timingSafeEqual` 防止时序攻击 |
-| 开发模式 | 缺少签名时跳过验证 |
-
-**处理的 Webhook 事件：**
-
-| 事件 | 处理逻辑 |
-|------|----------|
-| `checkout.completed` | 创建订单，一次性购买加积分，关联 Creem 客户 ID |
-| `subscription.active` | 激活订阅，更新 tier 和积分 |
-| `subscription.paid` | 续费成功，刷新积分，创建支付订单 |
-| `subscription.canceled` | 降级为免费，重置积分 |
-| `subscription.scheduled_cancel` | 记录日志，保持当前权益到期末 |
-| `subscription.past_due` | 记录警告，可通知用户 |
-| `subscription.expired` | 降级为免费 |
-| `refund.created` | 记录日志，可扣减积分 |
+| Item | Description |
+|------|-------------|
+| Auth | Required, `role === "admin"` |
+| Body | `{ userId: string, amount: number }` |
+| Note | Regular user credit additions happen via Creem Webhook automatically |
+| Failure | `403` not admin |
 
 ---
 
-#### 6. V1 API（新功能）
+#### 5. Creem Payment Module
 
-##### `PATCH /api/v1/user/profile` — 修改资料
+##### `POST /api/creem/checkout` — Create Checkout Session
 
-| 项目 | 说明 |
-|------|------|
-| 认证 | 需要 |
-| 请求体 | `{ name?: string }` |
-| 成功 | `200 { user: { id, name, email } }` |
+| Item | Description |
+|------|-------------|
+| Auth | Required |
+| Body | `{ productId, successUrl?, cancelUrl? }` |
+| Success | `200 { checkoutUrl, checkoutId }` |
+| Note | Frontend redirects to `checkoutUrl` for Creem hosted payment |
 
-##### `PATCH /api/v1/user/password` — 修改密码
+##### `GET /api/creem/products` — Get Products/Plans
 
-| 项目 | 说明 |
-|------|------|
-| 认证 | 需要（Credentials 用户） |
-| 请求体 | `{ currentPassword, newPassword }` |
-| 校验 | 验证当前密码，新密码 ≥ 6 字符 |
-| 失败 | `400` 当前密码错误 / OAuth 账户不支持 |
+| Item | Description |
+|------|-------------|
+| Auth | None |
+| Success | `200 { plans: [...] }` |
 
-##### `GET /api/v1/bookmarks` — 获取收藏列表
+##### `POST /api/creem/portal` — Create Customer Portal Session
 
-| 项目 | 说明 |
-|------|------|
-| 认证 | 需要 |
-| 成功 | `200 { images: [...] }` |
+| Item | Description |
+|------|-------------|
+| Auth | Required (and must have Creem subscription) |
+| Success | `200 { portalUrl }` |
+| Note | Users can manage subscriptions, cancel, update payment methods |
 
-##### `POST /api/v1/bookmarks` — 添加收藏
+##### `POST /api/creem/webhook` — Creem Payment Webhook
 
-| 项目 | 说明 |
-|------|------|
-| 认证 | 需要 |
-| 请求体 | `{ imageId: string }` |
-| 说明 | 幂等操作（upsert），重复收藏不报错 |
+| Item | Description |
+|------|-------------|
+| Auth | Creem signature verification (`creem-signature` header, HMAC-SHA256) |
+| Security | `timingSafeEqual` prevents timing attacks |
+| Dev mode | Skips verification when secret is missing |
 
-##### `DELETE /api/v1/bookmarks/:id` — 取消收藏
+**Handled Webhook Events:**
 
-| 项目 | 说明 |
-|------|------|
-| 认证 | 需要 |
-| 参数 | `:id` 为图片 ID |
-
-##### `POST /api/v1/images/:id/like` — 点赞
-
-| 项目 | 说明 |
-|------|------|
-| 认证 | 需要 |
-| 成功 | `200 { likes: number }` |
-
-##### `DELETE /api/v1/images/:id/like` — 取消点赞
-
-| 项目 | 说明 |
-|------|------|
-| 认证 | 需要 |
-| 成功 | `200 { likes: number }` |
+| Event | Processing Logic |
+|-------|-----------------|
+| `checkout.completed` | Create order, add credits for one-time purchase, link Creem customer ID |
+| `subscription.active` | Activate subscription, update tier and credits |
+| `subscription.paid` | Renewal success, refresh credits, create payment order |
+| `subscription.canceled` | Downgrade to free, reset credits |
+| `subscription.scheduled_cancel` | Log, maintain current benefits until period end |
+| `subscription.past_due` | Log warning, can notify user |
+| `subscription.expired` | Downgrade to free |
+| `refund.created` | Log, can deduct credits |
 
 ---
 
-## 四、辅助模块 (src/lib/)
+#### 6. V1 API (New Features)
 
-| 模块 | 文件 | 说明 |
-|------|------|------|
-| 认证 | `auth.ts` | NextAuth v5 配置，JWT 回调，Session 类型扩展（含 role、creemCustomerId） |
-| 数据库 | `db.ts` | Prisma Client 单例 |
-| 积分 | `credits.ts` | 积分检查/消耗/充值/每日重置逻辑 |
-| 限流 | `rate-limit.ts` | Upstash Redis 限流（生产）+ 内存回退（开发），10次/分钟 |
-| 存储 | `storage.ts` | S3/R2 兼容存储客户端，支持上传/删除/生成 key |
-| 日志 | `logger.ts` | 结构化日志，API 请求追踪（方法、路径、状态码、耗时） |
-| 风格 | `styles.ts` | 5 种图片风格的配置（系统提示词、模型、用例、技巧） |
+##### `PATCH /api/v1/user/profile` — Update Profile
+
+| Item | Description |
+|------|-------------|
+| Auth | Required |
+| Body | `{ name?: string }` |
+| Success | `200 { user: { id, name, email } }` |
+
+##### `PATCH /api/v1/user/password` — Change Password
+
+| Item | Description |
+|------|-------------|
+| Auth | Required (Credentials users only) |
+| Body | `{ currentPassword, newPassword }` |
+| Validation | Verify current password, new password >= 6 chars |
+| Failure | `400` wrong current password / OAuth accounts not supported |
+
+##### `GET /api/v1/user/has-password` — Check if User Has Password
+
+| Item | Description |
+|------|-------------|
+| Auth | Required |
+| Success | `200 { hasPassword: boolean }` |
+| Note | OAuth users (Google login) have no password |
+
+##### `GET /api/v1/bookmarks` — Get Bookmark List
+
+| Item | Description |
+|------|-------------|
+| Auth | Required |
+| Success | `200 { images: [...] }` |
+
+##### `POST /api/v1/bookmarks` — Add Bookmark
+
+| Item | Description |
+|------|-------------|
+| Auth | Required |
+| Body | `{ imageId: string }` |
+| Note | Idempotent (upsert), duplicate bookmarks don't error |
+
+##### `DELETE /api/v1/bookmarks/:id` — Remove Bookmark
+
+| Item | Description |
+|------|-------------|
+| Auth | Required |
+| Param | `:id` is the image ID |
+
+##### `POST /api/v1/images/:id/like` — Like
+
+| Item | Description |
+|------|-------------|
+| Auth | Required |
+| Success | `200 { likes: number }` |
+
+##### `DELETE /api/v1/images/:id/like` — Unlike
+
+| Item | Description |
+|------|-------------|
+| Auth | Required |
+| Success | `200 { likes: number }` |
 
 ---
 
-## 五、中间件 (src/middleware.ts)
+## 4. Utility Modules (src/lib/)
 
-| 功能 | 说明 |
-|------|------|
-| 路由守卫 | `/dashboard` 和 `/settings` 未登录重定向到 `/signin?callbackUrl=...` |
-| 已登录重定向 | `/signin` 已登录用户自动跳转到 `/dashboard` |
-| 跳过规则 | API 路由、静态文件、NextAuth 内部路由不经过中间件 |
-| Session 检测 | 兼容 NextAuth v5 多种 cookie 名称 |
+| Module | File | Description |
+|--------|------|-------------|
+| Auth | `auth.ts` | NextAuth v5 config, JWT callbacks, Session type extensions (incl. role, creemCustomerId) |
+| Database | `db.ts` | Prisma Client singleton |
+| Credits | `credits.ts` | Credit check/consume/refill/daily reset logic |
+| Rate Limiting | `rate-limit.ts` | Upstash Redis rate limiting (prod) + memory fallback (dev), 10 req/min |
+| Storage | `storage.ts` | S3/R2 compatible storage client, upload/delete/key generation |
+| Logging | `logger.ts` | Structured logging, API request tracing (method, path, status, duration) |
+| Styles | `styles.ts` | 5 image style configs (system prompts, models, use cases, tips) |
+| AI Service | `ai-service.ts` | AI provider abstraction layer |
 
 ---
 
-## 六、数据模型 (Prisma Schema)
+## 5. Middleware (src/middleware.ts)
+
+| Function | Description |
+|----------|-------------|
+| Route guard | `/dashboard` and `/settings` redirect unauthenticated to `/signin?callbackUrl=...` |
+| Logged-in redirect | `/signin` and `/signup` redirect authenticated users to `/dashboard` |
+| Skip rules | API routes, static files, NextAuth internal routes bypass middleware |
+| Session detection | Compatible with multiple NextAuth v5 cookie names |
+
+---
+
+## 6. Data Models (Prisma Schema)
 
 ```
-User ──< Account        (NextAuth OAuth 账号)
-User ──< Session        (NextAuth 会话)
-User ──< Image          (生成的图片)
-User ──< Order          (支付订单)
-User ──< Bookmark       (图片收藏)
+User ──< Account        (NextAuth OAuth accounts)
+User ──< Session        (NextAuth sessions)
+User ──< Image          (Generated images)
+User ──< Order          (Payment orders)
+User ──< Bookmark       (Image bookmarks)
 
-Image ──< Bookmark      (被收藏)
+Image ──< Bookmark      (Bookmarked by users)
+Image ──< Like          (Liked by users)
 
-Plan                    (定价套餐，种子数据，含 creemProductId)
+Plan                    (Pricing plans, seed data, incl. creemProductId)
 ```
 
-**User 关键字段：**
-- `role`：用户角色（"user" | "admin"）
-- `credits` + `creditsResetAt`：积分与每日重置
-- `subscriptionTier`：订阅等级 (free/premium/ultimate)
-- `creemCustomerId` + `creemSubscriptionId`：Creem 支付关联
+**User Key Fields:**
+- `role`: User role ("user" | "admin")
+- `credits` + `creditsResetAt`: Credits and daily reset
+- `subscriptionTier`: Subscription tier (free/premium/ultimate)
+- `creemCustomerId` + `creemSubscriptionId`: Creem payment association
 
-**Image 关键字段：**
-- `likes`：点赞数（默认 0）
-- `bookmarks`：收藏关系
+**Image Key Fields:**
+- `likes`: Like count (default 0)
+- `bookmarks`: Bookmark relationships
 
-**Order 关键字段：**
-- `creemOrderId` + `creemTransactionId`：Creem 订单关联
+**Order Key Fields:**
+- `creemOrderId` + `creemTransactionId`: Creem order association
 
-**Plan 关键字段：**
-- `creemProductId`：Creem 产品 ID，用于创建结账会话
+**Plan Key Fields:**
+- `creemProductId`: Creem product ID for checkout session creation
 
-**Bookmark 模型：**
-- `userId` + `imageId`：复合唯一约束，防止重复收藏
+**Bookmark Model:**
+- `userId` + `imageId`: Composite unique constraint, prevents duplicate bookmarks
+
+**Like Model:**
+- `userId` + `imageId`: Composite unique constraint, prevents duplicate likes
 
 ---
 
-## 七、环境变量
+## 7. Environment Variables
 
 ```bash
-# 数据库
+# Database
 DATABASE_URL="postgresql://..."
 
 # NextAuth v5
-AUTH_URL="http://localhost:3000"
 AUTH_SECRET="..."
 
 # Google OAuth
 GOOGLE_CLIENT_ID="..."
 GOOGLE_CLIENT_SECRET="..."
 
-# Creem 支付
+# Creem Payment
 CREEM_API_KEY="..."
 CREEM_WEBHOOK_SECRET="..."
 
-# AI 提供商: "placeholder" | "stability" | "replicate" | "openai"
+# AI Provider: "placeholder" | "stability" | "replicate" | "openai"
 AI_PROVIDER="placeholder"
 STABILITY_API_KEY=""
 OPENAI_API_KEY=""
 REPLICATE_API_TOKEN=""
 
-# Upstash Redis（可选，生产限流）
+# Upstash Redis (optional, production rate limiting)
 UPSTASH_REDIS_REST_URL=""
 UPSTASH_REDIS_REST_TOKEN=""
 
-# S3/R2 存储（可选，图片持久化）
+# S3/R2 Storage (optional, image persistence)
 S3_ENDPOINT=""
 S3_ACCESS_KEY_ID=""
 S3_SECRET_ACCESS_KEY=""
@@ -410,100 +428,98 @@ S3_PUBLIC_URL=""
 
 ---
 
-## 八、设计思路与原则
+## 8. Design Principles
 
-### 1. API 设计原则
+### 1. API Design Principles
 
-**RESTful 风格 + 实用主义**
+**RESTful Style + Pragmatism**
 
-- 资源型路由：`/api/images`, `/api/credits`, `/api/creem/products`
-- 动词用 HTTP 方法区分：`GET` 查询, `POST` 创建/操作, `PATCH` 部分更新, `DELETE` 删除
-- 非 CRUD 操作用名词+动词：`/api/generate`（生成不是简单 CRUD），`/api/creem/webhook`（第三方回调）
-- 新功能使用版本化路径：`/api/v1/user/profile`, `/api/v1/bookmarks`
+- Resource-based routes: `/api/images`, `/api/credits`, `/api/creem/products`
+- HTTP methods for verbs: `GET` query, `POST` create/action, `PATCH` partial update, `DELETE` delete
+- Non-CRUD operations use noun+verb: `/api/generate` (generation isn't simple CRUD), `/api/creem/webhook` (third-party callback)
+- New features use versioned paths: `/api/v1/user/profile`, `/api/v1/bookmarks`
 
-**统一响应格式：**
+**Unified Response Format:**
 
 ```typescript
-// 成功
-{ data: T } 或 { success: true, ... }
+// Success
+{ data: T } or { success: true, ... }
 
-// 失败
+// Failure
 { error: string }           // 4xx/5xx
-{ error: string, details }  // 400 校验失败时附带 Zod 错误详情
+{ error: string, details }  // 400 with Zod error details
 ```
 
-**HTTP 状态码规范：**
+**HTTP Status Code Convention:**
 
-| 状态码 | 含义 | 使用场景 |
-|--------|------|----------|
-| 200 | 成功 | GET/PATCH/DELETE 成功 |
-| 201 | 已创建 | 注册成功 |
-| 400 | 请求错误 | Zod 校验失败 |
-| 401 | 未认证 | 缺少登录态 |
-| 402 | 余额不足 | 积分不够生成图片 |
-| 403 | 无权限 | 非管理员操作 / 操作他人资源 |
-| 404 | 不存在 | 资源 ID 不存在 |
-| 409 | 冲突 | 邮箱已注册 |
-| 429 | 限流 | 请求过于频繁 |
-| 500 | 服务器错误 | 未捕获异常 |
+| Code | Meaning | Use Case |
+|------|---------|----------|
+| 200 | Success | GET/PATCH/DELETE success |
+| 201 | Created | Registration success |
+| 400 | Bad Request | Zod validation failed |
+| 401 | Unauthorized | Missing authentication |
+| 402 | Payment Required | Insufficient credits |
+| 403 | Forbidden | Non-admin operation / accessing others' resources |
+| 404 | Not Found | Resource ID doesn't exist |
+| 409 | Conflict | Email already registered |
+| 429 | Too Many Requests | Rate limited |
+| 500 | Server Error | Uncaught exception |
 
-### 2. 认证与权限设计
+### 2. Authentication & Authorization Design
 
-- **JWT 策略**而非数据库 Session：减少数据库查询，适合无状态 API
-- **自定义 JWT 字段**：将 credits、subscriptionTier、creemCustomerId、role 放入 token
-- **Middleware 服务端守卫**：避免客户端闪现未授权内容
-- **管理员角色**：`role` 字段区分普通用户和管理员，积分充值等敏感操作限管理员
+- **JWT strategy** over database sessions: reduces DB queries, suitable for stateless API
+- **Custom JWT fields**: credits, subscriptionTier, creemCustomerId, role stored in token
+- **Middleware server-side guards**: prevents client-side flash of unauthorized content
+- **Admin role**: `role` field distinguishes regular users from admins; sensitive operations like credit top-up are admin-only
 
-### 3. 安全设计
+### 3. Security Design
 
-- **Zod 校验**：所有 API 入口校验请求体
-- **CSRF 保护**：NextAuth 自动处理
-- **Webhook 签名验证**：Creem 回调使用 `creem-signature` 头 + HMAC-SHA256 + timingSafeEqual
-- **生产级限流**：Upstash Redis + 内存回退
-- **权限隔离**：图片操作校验 `userId` 一致性，积分充值限管理员
+- **Zod validation**: All API entry points validate request body
+- **CSRF protection**: NextAuth handles automatically
+- **Webhook signature verification**: Creem callback uses `creem-signature` header + HMAC-SHA256 + timingSafeEqual
+- **Production rate limiting**: Upstash Redis + memory fallback
+- **Authorization isolation**: Image operations verify `userId` consistency; credit top-up is admin-only
 
-### 4. SSE 流式设计
+### 4. SSE Streaming Design
 
-图片生成使用 SSE，原因：
-- 生成耗时长（3-30秒），需要实时进度反馈
-- 前端可展示进度条
-- 避免请求超时
-- 生成失败自动退还积分
+Image generation uses SSE because:
+- Generation takes time (3-30s), requires real-time progress feedback
+- Frontend can show progress bar
+- Avoids request timeout
+- Auto-refund credits on generation failure
 
-### 5. 游标分页设计
+### 5. Cursor Pagination Design
 
-图片列表使用游标分页（cursor-based）而非偏移分页（offset-based）：
-- 性能稳定：大数据量时 `WHERE id < cursor` 比 `OFFSET N` 快得多
-- 数据一致：新增/删除数据不会导致重复或遗漏
-- 响应包含 `nextCursor`，前端据此加载下一页
+Image lists use cursor-based pagination instead of offset-based:
+- Stable performance: `WHERE id < cursor` is much faster than `OFFSET N` with large datasets
+- Data consistency: New/deleted data doesn't cause duplicates or gaps
+- Response includes `nextCursor`, frontend loads next page accordingly
 
-### 6. 多 AI 提供商设计
+### 6. Multi AI Provider Design
 
-通过 `AI_PROVIDER` 环境变量切换，统一返回 `{ success, imageUrl?, imageBuffer?, error? }`：
-- 开发环境用 `placeholder` 零成本测试
-- 生产环境按需选择 Stability AI / Replicate / OpenAI
-- 返回 `imageBuffer` 时自动上传到 S3/R2 存储
+Switch via `AI_PROVIDER` env variable, unified return format `{ success, imageUrl?, imageBuffer?, error? }`:
+- Dev environment uses `placeholder` for zero-cost testing
+- Production selects Stability AI / Replicate / OpenAI as needed
+- When `imageBuffer` is returned, auto-upload to S3/R2 storage
 
-### 7. Creem 支付集成设计
+### 7. Creem Payment Integration Design
 
-Creem 作为 Merchant of Record（税务代扣），集成流程：
-1. 前端调用 `POST /api/creem/checkout` 获取结账 URL
-2. 跳转到 Creem 托管支付页面
-3. 支付完成后 Creem 发送 Webhook 到 `POST /api/creem/webhook`
-4. Webhook 处理订阅激活/积分充值/订单记录
-5. 用户可通过 `POST /api/creem/portal` 管理订阅
+Creem as Merchant of Record (tax withholding), integration flow:
+1. Frontend calls `POST /api/creem/checkout` to get checkout URL
+2. Redirects to Creem hosted payment page
+3. After payment, Creem sends Webhook to `POST /api/creem/webhook`
+4. Webhook processes subscription activation / credit top-up / order recording
+5. Users can manage subscriptions via `POST /api/creem/portal`
 
 ---
 
-## 九、待完善项
+## 9. Future Improvements
 
-### 后续可优化
-
-1. **图片编辑/变体 API** — 当前只有生成，没有对已有图片的编辑/变体功能
-2. **邮箱验证** — 注册后未验证邮箱，应添加 emailVerified 流程
-3. **OAuth 账号关联** — Google 登录和邮箱密码登录的账号合并
-4. **图片审核** — 社区公开图片缺少内容审核机制
-5. **WebSocket 实时通知** — 积分变动、订阅状态变更等实时推送
-6. **批量操作** — 批量删除图片、批量下载
-7. **Sentry 错误监控** — 将 logger.error 对接 Sentry 上报
-8. **API 速率配额** — 不同订阅等级不同限流策略
+1. **Image editing/variation API** — Currently only generation, no edit/variation for existing images
+2. **Email verification** — No email verification after registration, should add emailVerified flow
+3. **OAuth account linking** — Merge Google login and email/password login accounts
+4. **Image moderation** — Community public images lack content moderation
+5. **WebSocket real-time notifications** — Real-time push for credit changes, subscription status updates
+6. **Batch operations** — Batch delete images, batch download
+7. **Sentry error monitoring** — Connect logger.error to Sentry reporting
+8. **API rate quotas** — Different rate limiting strategies per subscription tier
