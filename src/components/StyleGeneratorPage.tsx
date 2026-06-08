@@ -54,7 +54,8 @@ export default function StyleGeneratorPage({ style }: StyleGeneratorPageProps) {
   const { data: session } = useSession();
   const [prompt, setPrompt] = useState("");
   const [negativePrompt, setNegativePrompt] = useState("");
-  const [selectedModel, setSelectedModel] = useState(style.availableModels[0]);
+  const [selectedModel, setSelectedModel] = useState<{ id: string; name: string; creditsCost: number } | null>(null);
+  const [availableModels, setAvailableModels] = useState<Array<{ id: string; name: string; displayName: string; creditsCost: number }>>([]);
   const [selectedRatio, setSelectedRatio] = useState(aspectRatios[0]);
   const [referenceImage, setReferenceImage] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -79,7 +80,26 @@ export default function StyleGeneratorPage({ style }: StyleGeneratorPageProps) {
         .catch(console.error);
     }
     fetchCommunityWorks();
+    fetchModels();
   }, [session]);
+
+  async function fetchModels() {
+    try {
+      const res = await fetch("/api/models");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.models && data.models.length > 0) {
+          setAvailableModels(data.models);
+          setSelectedModel(data.models[0]);
+        }
+      }
+    } catch {
+      // Fallback: use default model name
+      const fallback = [{ id: "qwen-image-edit", name: "qwen-image-edit", displayName: "Qwen Image Edit", creditsCost: 1 }];
+      setAvailableModels(fallback);
+      setSelectedModel(fallback[0]);
+    }
+  }
 
   async function fetchCommunityWorks() {
     try {
@@ -128,7 +148,7 @@ export default function StyleGeneratorPage({ style }: StyleGeneratorPageProps) {
         body: JSON.stringify({
           prompt: prompt,
           negativePrompt: negativePrompt || undefined,
-          model: selectedModel.id,
+          model: selectedModel?.name || selectedModel?.id || "qwen-image-edit",
           aspectRatio: selectedRatio.id,
           style: style.id,
           fastMode: false,
@@ -423,15 +443,15 @@ export default function StyleGeneratorPage({ style }: StyleGeneratorPageProps) {
                       <div>
                         <label className="block text-xs font-medium text-gray-500 mb-1.5">AI Model</label>
                         <select
-                          value={selectedModel.id}
+                          value={selectedModel?.id || ""}
                           onChange={(e) => {
-                            const model = style.availableModels.find((m) => m.id === e.target.value);
+                            const model = availableModels.find((m) => m.id === e.target.value);
                             if (model) setSelectedModel(model);
                           }}
                           className="w-full px-3 py-2 text-sm bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-all"
                         >
-                          {style.availableModels.map((model) => (
-                            <option key={model.id} value={model.id}>{model.name}</option>
+                          {availableModels.map((model) => (
+                            <option key={model.id} value={model.id}>{model.displayName} ({model.creditsCost} credit{model.creditsCost > 1 ? "s" : ""})</option>
                           ))}
                         </select>
                       </div>
@@ -466,18 +486,18 @@ export default function StyleGeneratorPage({ style }: StyleGeneratorPageProps) {
 
                 {/* Quick Model Selection */}
                 <div className="flex items-center gap-2 mb-5 overflow-x-auto pb-1 scrollbar-hide">
-                  {style.availableModels.map((model) => (
+                  {availableModels.map((model) => (
                     <button
                       key={model.id}
                       onClick={() => setSelectedModel(model)}
                       className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-xl whitespace-nowrap transition-all border ${
-                        selectedModel.id === model.id
+                        selectedModel?.id === model.id
                           ? "border-purple-500 bg-purple-50 text-purple-700"
                           : "border-gray-200 text-gray-500 hover:border-gray-300"
                       }`}
                     >
                       <Layers className="w-3 h-3" />
-                      {model.name}
+                      {model.displayName}
                     </button>
                   ))}
                 </div>
@@ -635,18 +655,18 @@ export default function StyleGeneratorPage({ style }: StyleGeneratorPageProps) {
                 </h3>
               </div>
               <div className="p-5 space-y-2">
-                {style.availableModels.map((model) => (
+                {availableModels.map((model) => (
                   <div
                     key={model.id}
                     className={`flex items-center justify-between px-3 py-2 rounded-xl text-sm transition-all cursor-pointer ${
-                      selectedModel.id === model.id
+                      selectedModel?.id === model.id
                         ? "bg-purple-50 border border-purple-200"
                         : "hover:bg-gray-50 border border-transparent"
                     }`}
                     onClick={() => setSelectedModel(model)}
                   >
-                    <span className="text-gray-700">{model.name}</span>
-                    {selectedModel.id === model.id && (
+                    <span className="text-gray-700">{model.displayName}</span>
+                    {selectedModel?.id === model.id && (
                       <div className="w-2 h-2 rounded-full bg-purple-500" />
                     )}
                   </div>

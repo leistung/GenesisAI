@@ -160,3 +160,32 @@ model Bookmark {
   
   @@unique([userId, imageId])
 }
+
+// AI Model configurations (admin configurable)
+model AIModel {
+  id            String   @id @default(cuid())
+  name          String   @unique // e.g. "qwen-image-edit", "wanx-v3"
+  displayName   String   // e.g. "Qwen Image Edit", "Wanx v3"
+  provider      String   @default("dashscope") // "dashscope", "openai", "stability", "replicate"
+  baseUrl       String   // API base URL
+  apiKey        String   // API key (encrypted in production)
+  modelId       String   // Model ID for API calls
+  creditsCost   Int      @default(1) // Credits consumed per generation
+  isActive      Boolean  @default(true)
+  sortOrder     Int      @default(0) // Display order
+  
+  // Model capabilities
+  supportsTextToImage Boolean @default(true)
+  supportsImageEdit   Boolean @default(false)
+  supportsNegativePrompt Boolean @default(true)
+  maxPromptLength     Int     @default(2000)
+  
+  // Supported aspect ratios (JSON array string)
+  supportedAspectRatios String @default("[\"1:1\",\"16:9\",\"9:16\",\"4:3\",\"3:4\"]")
+  
+  // Style-specific system prompts (JSON object string, keyed by style name)
+  stylePrompts  String   @default("{}")
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
