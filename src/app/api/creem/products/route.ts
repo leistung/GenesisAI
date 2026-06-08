@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { logger } from "@/lib/logger";
 
-// GET /api/paddle/products - Get available Paddle products/plans
+// GET /api/creem/products - Get available Creem products/plans
 export async function GET() {
   try {
-    // In production, fetch from Paddle API
-    // For now, return static plans that match our database
     const plans = await prisma.plan.findMany({
       orderBy: { price: "asc" },
     });
@@ -18,6 +16,7 @@ export async function GET() {
           name: "free",
           displayName: "Free",
           price: 0,
+          currency: "USD",
           credits: 10,
           features: JSON.stringify([
             "10 credits per day",
@@ -30,6 +29,7 @@ export async function GET() {
           name: "premium",
           displayName: "Premium",
           price: 9.99,
+          currency: "USD",
           credits: 2000,
           features: JSON.stringify([
             "2,000 credits per month",
@@ -43,6 +43,7 @@ export async function GET() {
           name: "ultimate",
           displayName: "Ultimate",
           price: 19.99,
+          currency: "USD",
           credits: 5000,
           features: JSON.stringify([
             "5,000 credits per month",
@@ -61,7 +62,7 @@ export async function GET() {
 
     return NextResponse.json({ plans });
   } catch (error) {
-    console.error("Error fetching plans:", error);
+    logger.error("Error fetching Creem plans", { error: String(error) });
     return NextResponse.json({ error: "Failed to fetch plans" }, { status: 500 });
   }
 }

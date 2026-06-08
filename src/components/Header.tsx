@@ -19,6 +19,7 @@ import {
   Globe,
   Home,
   CreditCard,
+  Settings,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -161,6 +162,9 @@ export default function Header() {
                     </span>
                   </div>
                 )}
+                <Link href="/settings" className="flex items-center gap-2 px-3 py-2 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-all">
+                  <Settings className="w-4 h-4" />
+                </Link>
                 <button
                   onClick={() => signOut()}
                   className="flex items-center gap-2 px-3 py-2 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-all"
@@ -259,6 +263,14 @@ export default function Header() {
                     >
                       <Coins className="w-4 h-4" />
                       Dashboard ({session.user?.credits ?? 0} credits)
+                    </Link>
+                    <Link
+                      href="/settings"
+                      onClick={() => setIsMenuOpen(false)}
+                      className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 rounded-xl"
+                    >
+                      <Settings className="w-4 h-4" />
+                      Settings
                     </Link>
                     <button
                       onClick={() => { signOut(); setIsMenuOpen(false); }}

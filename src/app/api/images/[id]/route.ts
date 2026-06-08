@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { deleteImage as deleteImageFromStorage, generateImageKey } from "@/lib/storage";
+import { logger } from "@/lib/logger";
 
 // DELETE /api/images/:id - Delete a user's image
 export async function DELETE(
@@ -27,13 +29,20 @@ export async function DELETE(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
+    // Delete from S3/R2 storage if configured
+    if (image.userId) {
+      const key = generateImageKey(image.userId, imageId);
+      await deleteImageFromStorage(key);
+    }
+
     await prisma.image.delete({
       where: { id: imageId },
     });
 
+    logger.info("Image deleted", { imageId, userId: session.user.id });
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Error deleting image:", error);
+    logger.error("Error deleting image", { error: String(error), imageId });
     return NextResponse.json({ error: "Failed to delete image" }, { status: 500 });
   }
 }
@@ -71,9 +80,10 @@ export async function PATCH(
       data: { isPublic: isPublic === true },
     });
 
+    logger.info("Image updated", { imageId, isPublic: updated.isPublic });
     return NextResponse.json({ success: true, image: updated });
   } catch (error) {
-    console.error("Error updating image:", error);
+    logger.error("Error updating image", { error: String(error), imageId });
     return NextResponse.json({ error: "Failed to update image" }, { status: 500 });
   }
 }

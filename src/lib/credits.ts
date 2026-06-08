@@ -27,7 +27,7 @@ export async function checkAndConsumeCredits(
 
   // Premium/Ultimate users have unlimited credits
   if (user.subscriptionTier && user.subscriptionTier !== "free") {
-    return { success: true, remainingCredits: Infinity };
+    return { success: true, remainingCredits: 999999 };
   }
 
   // Check if we need to reset daily credits

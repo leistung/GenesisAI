@@ -1,42 +1,73 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { Check, Crown, Zap } from "lucide-react";
 
 export default function PricingPage() {
   const { data: session } = useSession();
+  const router = useRouter();
   const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("monthly");
+  const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
+  const [apiPlans, setApiPlans] = useState<Array<{ name: string; displayName: string; price: number; currency: string; credits: number; creemProductId: string; features: string }>>([]);
+  const [useApiPlans, setUseApiPlans] = useState(false);
 
-  const monthlyPlans = [
+  useEffect(() => {
+    async function fetchPlans() {
+      try {
+        const res = await fetch("/api/creem/products");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.plans && data.plans.length > 0) {
+            setApiPlans(data.plans);
+            setUseApiPlans(true);
+          }
+        }
+      } catch {
+        // Fall back to hardcoded plans
+      }
+    }
+    fetchPlans();
+  }, []);
+
+  const hardcodedPlans = [
     {
       name: "free",
       displayName: "Free",
-      monthlyPrice: 0,
-      yearlyPrice: 0,
+      price: 0,
+      currency: "USD",
       credits: 10,
-      creditLabel: "/day",
-      features: ["10 credits / day", "Basic models", "Community support", "Watermarked images"],
+      creemProductId: "",
+      features: ["10 credits per day", "Basic model only", "Community support", "Images include watermark"],
     },
     {
       name: "premium",
       displayName: "Premium",
-      monthlyPrice: 9.99,
-      yearlyPrice: 95.88,
+      price: 9.99,
+      currency: "USD",
       credits: 2000,
-      creditLabel: "/month",
-      features: ["2,000 credits / month", "All models", "Priority queue", "No watermark", "AI Image Editor"],
+      creemProductId: "prod_premium",
+      features: ["2,000 credits per month", "All models included", "Priority queue", "No watermarks", "Fast AI Photo Editor"],
     },
     {
       name: "ultimate",
       displayName: "Ultimate",
-      monthlyPrice: 19.99,
-      yearlyPrice: 191.88,
+      price: 19.99,
+      currency: "USD",
       credits: 5000,
-      creditLabel: "/month",
-      features: ["5,000 credits / month", "All models", "Highest priority", "No watermark", "Instant AI Editor", "Early access to new features"],
+      creemProductId: "prod_ultimate",
+      features: ["5,000 credits per month", "All models included", "Highest priority queue", "No watermarks", "Instant AI Photo Editor", "Early access to new features"],
     },
   ];
+
+  const plans = useApiPlans
+    ? apiPlans.map((p) => ({
+        ...p,
+        features: (typeof p.features === "string" ? JSON.parse(p.features) : p.features) as string[],
+        creemProductId: p.creemProductId || "",
+      }))
+    : hardcodedPlans;
 
   return (
     <div className="min-h-screen bg-gray-50 py-16 px-4">
@@ -72,10 +103,8 @@ export default function PricingPage() {
         </div>
 
         <div className="grid md:grid-cols-3 gap-8">
-          {monthlyPlans.map((plan) => {
+          {plans.map((plan) => {
             const isCurrentPlan = session?.user?.subscriptionTier === plan.name;
-            const displayPrice = billingCycle === "yearly" ? plan.yearlyPrice / 12 : plan.monthlyPrice;
-            const totalPrice = billingCycle === "yearly" ? plan.yearlyPrice : plan.monthlyPrice;
 
             return (
               <div
@@ -97,19 +126,14 @@ export default function PricingPage() {
                   </div>
 
                   <div className="mb-4">
-                    {plan.monthlyPrice === 0 ? (
+                    {plan.price === 0 ? (
                       <span className="text-3xl font-bold text-gray-900">Free</span>
                     ) : (
                       <>
                         <span className="text-3xl font-bold text-gray-900">
-                          ${displayPrice.toFixed(2)}
+                          ${plan.price.toFixed(2)}
                         </span>
                         <span className="text-gray-600">/month</span>
-                        {billingCycle === "yearly" && (
-                          <div className="text-sm text-gray-400 mt-1">
-                            ${totalPrice.toFixed(2)}/year billed annually
-                          </div>
-                        )}
                       </>
                     )}
                   </div>
@@ -117,7 +141,7 @@ export default function PricingPage() {
                   <div className="flex items-center gap-2 text-gray-600 mb-4">
                     <Zap className="w-4 h-4 text-yellow-500" />
                     <span>
-                      {plan.credits.toLocaleString()} credits{plan.creditLabel}
+                      {plan.credits.toLocaleString()} credits{plan.name === "free" ? "/day" : "/month"}
                     </span>
                   </div>
 
@@ -131,10 +155,38 @@ export default function PricingPage() {
                   </ul>
 
                   <button
-                    disabled={isCurrentPlan}
+                    disabled={isCurrentPlan || loadingPlan === plan.name}
+                    onClick={async () => {
+                      if (plan.price === 0) {
+                        router.push("/signin");
+                        return;
+                      }
+                      if (!session) {
+                        router.push("/signin?callbackUrl=/pricing");
+                        return;
+                      }
+                      setLoadingPlan(plan.name);
+                      try {
+                        const res = await fetch("/api/creem/checkout", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ productId: plan.creemProductId }),
+                        });
+                        const data = await res.json();
+                        if (data.checkoutUrl) {
+                          window.location.href = data.checkoutUrl;
+                        }
+                      } catch {
+                        alert("Failed to start checkout. Please try again.");
+                      } finally {
+                        setLoadingPlan(null);
+                      }
+                    }}
                     className={`w-full py-3 px-6 rounded-lg font-semibold transition-all ${
                       isCurrentPlan
                         ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                        : loadingPlan === plan.name
+                        ? "bg-gray-300 text-gray-500 cursor-wait"
                         : plan.name === "premium"
                         ? "bg-purple-600 text-white hover:bg-purple-700"
                         : plan.name === "ultimate"
@@ -142,7 +194,7 @@ export default function PricingPage() {
                         : "bg-gray-900 text-white hover:bg-gray-800"
                     }`}
                   >
-                    {isCurrentPlan ? "Current Plan" : plan.monthlyPrice === 0 ? "Get Started Free" : "Subscribe"}
+                    {loadingPlan === plan.name ? "Processing..." : isCurrentPlan ? "Current Plan" : plan.price === 0 ? "Get Started Free" : "Subscribe"}
                   </button>
                 </div>
               </div>

@@ -18,6 +18,7 @@ model User {
   image         String?
   emailVerified DateTime?
   password      String?   // For credentials (email/password) auth
+  role          String    @default("user") // "user" or "admin"
   
   // Credits system
   credits       Int       @default(10)  // Free tier: 10 credits/day
@@ -25,15 +26,17 @@ model User {
   
   // Subscription
   subscriptionTier String?  // 'free', 'premium', 'ultimate'
-  paddleCustomerId String?  @unique
-  paddleSubscriptionId String? @unique
+  creemCustomerId String?  @unique // Creem customer ID
+  creemSubscriptionId String? @unique // Creem subscription ID
   
   // Relations
   accounts      Account[]
   sessions      Session[]
   images        Image[]
   orders        Order[]
-  
+  bookmarks     Bookmark[]
+  likes         Like[]
+
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 }
@@ -89,18 +92,21 @@ model Image {
   imageUrl    String
   thumbnailUrl String?
   isPublic    Boolean  @default(false)
+  likes       Int      @default(0)
   
   user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-  
+  bookmarks   Bookmark[]
+  likeRecords Like[]
+
   createdAt   DateTime @default(now())
 }
 
-// Orders for Paddle payments
+// Orders for Creem payments
 model Order {
   id              String   @id @default(cuid())
   userId          String
-  paddleOrderId   String   @unique
-  paddleTransactionId String?
+  creemOrderId    String   @unique // Creem order ID
+  creemTransactionId String? // Creem transaction ID
   status          String   @default("pending") // pending, completed, failed, refunded
   amount          Float
   currency        String   @default("USD")
@@ -120,11 +126,37 @@ model Plan {
   price           Float
   currency        String   @default("USD")
   credits         Int      // Credits per month
-  paddleProductId String?  @unique
-  paddlePriceId   String?  @unique
-  
+  creemProductId  String?  @unique // Creem product ID for checkout
   features        String   // JSON string of features list
   
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+}
+
+// Image likes (track who liked what)
+model Like {
+  id        String   @id @default(cuid())
+  userId    String
+  imageId   String
+  
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  image     Image    @relation(fields: [imageId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+  
+  @@unique([userId, imageId])
+}
+
+// Image bookmarks (favorites)
+model Bookmark {
+  id        String   @id @default(cuid())
+  userId    String
+  imageId   String
+  
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  image     Image    @relation(fields: [imageId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+  
+  @@unique([userId, imageId])
 }

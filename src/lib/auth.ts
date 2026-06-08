@@ -47,7 +47,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           image: user.image,
           credits: user.credits,
           subscriptionTier: user.subscriptionTier,
-          paddleCustomerId: user.paddleCustomerId,
+          creemCustomerId: user.creemCustomerId,
+          role: user.role,
         };
       },
     }),
@@ -62,10 +63,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   callbacks: {
     async jwt({ token, user, trigger, session }) {
       if (user) {
-        token.id = user.id;
+        token.id = user.id ?? "";
         token.credits = user.credits;
         token.subscriptionTier = user.subscriptionTier;
-        token.paddleCustomerId = user.paddleCustomerId;
+        token.creemCustomerId = user.creemCustomerId;
+        token.role = user.role;
       }
 
       // Refresh user data from DB when session is updated
@@ -76,7 +78,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         if (dbUser) {
           token.credits = dbUser.credits;
           token.subscriptionTier = dbUser.subscriptionTier;
-          token.paddleCustomerId = dbUser.paddleCustomerId;
+          token.creemCustomerId = dbUser.creemCustomerId;
+          token.role = dbUser.role;
         }
       }
 
@@ -87,7 +90,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         session.user.id = token.id as string;
         session.user.credits = token.credits as number;
         session.user.subscriptionTier = token.subscriptionTier as string | null;
-        session.user.paddleCustomerId = token.paddleCustomerId as string | null;
+        session.user.creemCustomerId = token.creemCustomerId as string | null;
+        session.user.role = token.role as string;
       }
       return session;
     },
@@ -98,7 +102,8 @@ declare module "next-auth" {
   interface User {
     credits: number;
     subscriptionTier: string | null;
-    paddleCustomerId: string | null;
+    creemCustomerId: string | null;
+    role: string;
   }
   interface Session {
     user: User;
@@ -110,6 +115,7 @@ declare module "@auth/core/jwt" {
     id: string;
     credits: number;
     subscriptionTier: string | null;
-    paddleCustomerId: string | null;
+    creemCustomerId: string | null;
+    role: string;
   }
 }

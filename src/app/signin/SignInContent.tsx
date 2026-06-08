@@ -3,20 +3,30 @@
 import { useState, useEffect, useCallback } from "react";
 import { signIn } from "next-auth/react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Sparkles, ArrowLeft, Mail, Lock, User, Eye, EyeOff, X, AlertCircle } from "lucide-react";
+import { Sparkles, ArrowLeft, Mail, Lock, User, Eye, EyeOff, X, AlertCircle, CheckCircle } from "lucide-react";
 import Link from "next/link";
 
-function Toast({ message, onClose }: { message: string; onClose: () => void }) {
+function Toast({ message, type, onClose }: { message: string; type: "error" | "success"; onClose: () => void }) {
   useEffect(() => {
     const timer = setTimeout(onClose, 5000);
     return () => clearTimeout(timer);
   }, [onClose]);
 
+  const isError = type === "error";
+
   return (
     <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 animate-slide-down">
-      <div className="flex items-center gap-3 bg-white border border-red-200 shadow-xl rounded-2xl px-5 py-4 min-w-[320px] max-w-[420px]">
-        <AlertCircle className="w-5 h-5 text-red-500 shrink-0" />
-        <p className="text-sm text-red-700 flex-1">{message}</p>
+      <div className={`flex items-center gap-3 border shadow-xl rounded-2xl px-5 py-4 min-w-[320px] max-w-[420px] ${
+        isError
+          ? "bg-white border-red-200"
+          : "bg-white border-green-200"
+      }`}>
+        {isError ? (
+          <AlertCircle className="w-5 h-5 text-red-500 shrink-0" />
+        ) : (
+          <CheckCircle className="w-5 h-5 text-green-500 shrink-0" />
+        )}
+        <p className={`text-sm flex-1 ${isError ? "text-red-700" : "text-green-700"}`}>{message}</p>
         <button onClick={onClose} className="text-gray-400 hover:text-gray-600 shrink-0">
           <X className="w-4 h-4" />
         </button>
@@ -32,6 +42,7 @@ export default function SignInContent() {
   const [name, setName] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [toast, setToast] = useState("");
+  const [toastType, setToastType] = useState<"error" | "success">("error");
   const [loading, setLoading] = useState(false);
 
   const searchParams = useSearchParams();
@@ -43,15 +54,23 @@ export default function SignInContent() {
 
   useEffect(() => {
     if (urlError === "CredentialsSignin") {
+      setToastType("error");
       setToast("Invalid email or password");
     } else if (urlError === "Configuration") {
+      setToastType("error");
       setToast("Server configuration error. Please try again later.");
     } else if (urlError) {
+      setToastType("error");
       setToast("Authentication failed. Please try again.");
     }
   }, [urlError]);
 
   const closeToast = useCallback(() => setToast(""), []);
+
+  const showToast = useCallback((message: string, type: "error" | "success" = "error") => {
+    setToastType(type);
+    setToast(message);
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -60,56 +79,115 @@ export default function SignInContent() {
 
     try {
       if (mode === "register") {
+        // Validate inputs
+        if (!name.trim()) {
+          showToast("Please enter your name");
+          setLoading(false);
+          return;
+        }
+        if (!email.trim()) {
+          showToast("Please enter your email");
+          setLoading(false);
+          return;
+        }
+        if (password.length < 6) {
+          showToast("Password must be at least 6 characters");
+          setLoading(false);
+          return;
+        }
+
         // Register
-        const res = await fetch("/api/auth/register", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name, email, password }),
-        });
+        let data;
+        try {
+          const res = await fetch("/api/auth/register", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: name.trim(), email: email.trim(), password }),
+          });
 
-        const data = await res.json();
+          data = await res.json();
 
-        if (!res.ok) {
-          setToast(data.error || "Registration failed");
+          if (!res.ok) {
+            showToast(data.error || "Registration failed");
+            setLoading(false);
+            return;
+          }
+        } catch (fetchError) {
+          console.error("Registration fetch error:", fetchError);
+          showToast("Network error. Please check your connection and try again.");
           setLoading(false);
           return;
         }
 
         // Auto sign in after registration
-        const result = await signIn("credentials", {
-          email,
-          password,
-          redirect: false,
-        });
+        try {
+          const result = await signIn("credentials", {
+            email: email.trim(),
+            password,
+            redirect: false,
+          });
 
-        if (result?.error) {
-          setToast(result.error === "CredentialsSignin" ? "Invalid email or password" : "Login failed after registration. Please try logging in manually.");
+          if (result?.error) {
+            showToast("Account created! Please sign in with your credentials.", "success");
+            setMode("login");
+            setLoading(false);
+            return;
+          }
+
+          // Registration and login successful
+          showToast("Account created successfully!", "success");
+          setTimeout(() => {
+            router.push(callbackUrl);
+            router.refresh();
+          }, 500);
+        } catch (signInError) {
+          console.error("Auto sign-in error after registration:", signInError);
+          showToast("Account created! Please sign in with your credentials.", "success");
+          setMode("login");
           setLoading(false);
-          return;
         }
-
-        router.push(callbackUrl);
-        router.refresh();
       } else {
         // Sign in
-        const result = await signIn("credentials", {
-          email,
-          password,
-          redirect: false,
-        });
-
-        if (result?.error) {
-          setToast(result.error === "CredentialsSignin" ? "Invalid email or password" : "Authentication failed. Please try again.");
+        if (!email.trim()) {
+          showToast("Please enter your email");
+          setLoading(false);
+          return;
+        }
+        if (!password) {
+          showToast("Please enter your password");
           setLoading(false);
           return;
         }
 
-        router.push(callbackUrl);
-        router.refresh();
+        try {
+          const result = await signIn("credentials", {
+            email: email.trim(),
+            password,
+            redirect: false,
+          });
+
+          if (result?.error) {
+            const errorMsg = result.error === "CredentialsSignin"
+              ? "Invalid email or password"
+              : "Authentication failed. Please try again.";
+            showToast(errorMsg);
+            setLoading(false);
+            return;
+          }
+
+          // Login successful (result may be undefined on success in NextAuth v5)
+          router.push(callbackUrl);
+          router.refresh();
+          setLoading(false);
+        } catch (signInError) {
+          console.error("Sign-in error:", signInError);
+          showToast("Something went wrong. Please try again.");
+          setLoading(false);
+        }
       }
     } catch (err) {
       console.error("Auth error:", err);
-      setToast("Something went wrong. Please try again.");
+      showToast("Something went wrong. Please try again.");
       setLoading(false);
     }
   }
@@ -118,7 +196,7 @@ export default function SignInContent() {
 
   return (
     <>
-      {toast && <Toast message={toast} onClose={closeToast} />}
+      {toast && <Toast message={toast} type={toastType} onClose={closeToast} />}
 
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 via-purple-50 to-pink-50 py-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-md w-full space-y-6">
@@ -225,7 +303,7 @@ export default function SignInContent() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder={isRegister ? "At least 6 characters" : "Your password"}
-                  minLength={6}
+                  minLength={isRegister ? 6 : undefined}
                   className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
                 />
                 <button

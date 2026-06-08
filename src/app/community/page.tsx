@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 import Image from "next/image";
-import { Globe, Palette, Camera, Mountain, Lightbulb, ShoppingBag, Download } from "lucide-react";
+import { Globe, Palette, Camera, Mountain, Lightbulb, ShoppingBag, Download, Loader2, Heart, Bookmark as BookmarkIcon } from "lucide-react";
 
 const styleFilters = [
   { id: "all", name: "All Styles", icon: Globe },
@@ -24,9 +25,14 @@ interface CommunityImage {
 }
 
 export default function CommunityPage() {
+  const { data: session } = useSession();
   const [images, setImages] = useState<CommunityImage[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeStyle, setActiveStyle] = useState("all");
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [likedImages, setLikedImages] = useState<Set<string>>(new Set());
+  const [bookmarkedImages, setBookmarkedImages] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetchImages();
@@ -35,18 +41,38 @@ export default function CommunityPage() {
   async function fetchImages() {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ public: "true", limit: "50" });
+      const params = new URLSearchParams({ public: "true", limit: "20" });
       if (activeStyle !== "all") params.set("style", activeStyle);
 
       const res = await fetch(`/api/images?${params}`);
       if (res.ok) {
         const data = await res.json();
         setImages(data.images);
+        setNextCursor(data.nextCursor);
       }
     } catch (error) {
       console.error("Error fetching community images:", error);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function loadMore() {
+    if (!nextCursor || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const params = new URLSearchParams({ public: "true", limit: "20", cursor: nextCursor });
+      if (activeStyle !== "all") params.set("style", activeStyle);
+      const res = await fetch(`/api/images?${params}`);
+      if (res.ok) {
+        const data = await res.json();
+        setImages((prev) => [...prev, ...data.images]);
+        setNextCursor(data.nextCursor);
+      }
+    } catch (error) {
+      console.error("Error loading more images:", error);
+    } finally {
+      setLoadingMore(false);
     }
   }
 
@@ -64,6 +90,49 @@ export default function CommunityPage() {
       window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error("Error downloading image:", error);
+    }
+  }
+
+  async function toggleLike(imageId: string) {
+    if (!session?.user) return;
+    try {
+      const res = await fetch(`/api/v1/images/${imageId}/like`, { method: "POST" });
+      if (res.ok) {
+        const data = await res.json();
+        setImages((prev) =>
+          prev.map((img) => (img.id === imageId ? { ...img, likes: data.likes } : img))
+        );
+        setLikedImages((prev) => {
+          const next = new Set(prev);
+          if (data.liked) next.add(imageId); else next.delete(imageId);
+          return next;
+        });
+      }
+    } catch (error) {
+      console.error("Error toggling like:", error);
+    }
+  }
+
+  async function toggleBookmark(imageId: string) {
+    if (!session?.user) return;
+    try {
+      if (bookmarkedImages.has(imageId)) {
+        const res = await fetch(`/api/v1/bookmarks/${imageId}`, { method: "DELETE" });
+        if (res.ok) {
+          setBookmarkedImages((prev) => { const next = new Set(prev); next.delete(imageId); return next; });
+        }
+      } else {
+        const res = await fetch("/api/v1/bookmarks", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ imageId }),
+        });
+        if (res.ok) {
+          setBookmarkedImages((prev) => { const next = new Set(prev); next.add(imageId); return next; });
+        }
+      }
+    } catch (error) {
+      console.error("Error toggling bookmark:", error);
     }
   }
 
@@ -126,7 +195,7 @@ export default function CommunityPage() {
                     className="object-cover"
                     unoptimized
                   />
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-colors flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
                     <button
                       onClick={() => downloadImage(image.imageUrl, image.prompt)}
                       className="p-2.5 bg-white rounded-lg hover:bg-gray-100 transition-colors"
@@ -134,19 +203,71 @@ export default function CommunityPage() {
                     >
                       <Download className="w-5 h-5 text-gray-900" />
                     </button>
+                    {session?.user && (
+                      <>
+                        <button
+                          onClick={() => toggleLike(image.id)}
+                          className={`p-2.5 rounded-lg transition-colors ${
+                            likedImages.has(image.id)
+                              ? "bg-red-500 text-white"
+                              : "bg-white text-gray-900 hover:bg-gray-100"
+                          }`}
+                          title="Like"
+                        >
+                          <Heart className={`w-5 h-5 ${likedImages.has(image.id) ? "fill-current" : ""}`} />
+                        </button>
+                        <button
+                          onClick={() => toggleBookmark(image.id)}
+                          className={`p-2.5 rounded-lg transition-colors ${
+                            bookmarkedImages.has(image.id)
+                              ? "bg-purple-500 text-white"
+                              : "bg-white text-gray-900 hover:bg-gray-100"
+                          }`}
+                          title="Bookmark"
+                        >
+                          <BookmarkIcon className={`w-5 h-5 ${bookmarkedImages.has(image.id) ? "fill-current" : ""}`} />
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
                 <div className="p-4">
                   <p className="text-sm text-gray-800 line-clamp-2 mb-2">{image.prompt}</p>
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-gray-500">by {image.author}</span>
-                    <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full capitalize">
-                      {image.style}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="flex items-center gap-1 text-xs text-gray-500">
+                        <Heart className="w-3 h-3" /> {image.likes}
+                      </span>
+                      {image.style && (
+                        <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full capitalize">
+                          {image.style}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {nextCursor && (
+          <div className="text-center mt-8">
+            <button
+              onClick={loadMore}
+              disabled={loadingMore}
+              className="inline-flex items-center gap-2 px-6 py-2.5 text-sm text-purple-600 hover:text-purple-700 font-medium hover:bg-purple-50 rounded-xl transition-colors disabled:opacity-50"
+            >
+              {loadingMore ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Loading...
+                </>
+              ) : (
+                "Load More"
+              )}
+            </button>
           </div>
         )}
       </main>

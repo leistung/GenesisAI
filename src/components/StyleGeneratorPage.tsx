@@ -12,6 +12,7 @@ import {
   Loader2,
   Coins,
   Heart,
+  Bookmark as BookmarkIcon,
   Share2,
   ChevronRight,
   Lightbulb,
@@ -65,6 +66,7 @@ export default function StyleGeneratorPage({ style }: StyleGeneratorPageProps) {
   const [credits, setCredits] = useState<number | null>(null);
   const [communityWorks, setCommunityWorks] = useState<CommunityWork[]>([]);
   const [publishing, setPublishing] = useState(false);
+  const [likedWorks, setLikedWorks] = useState<Set<string>>(new Set());
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -124,12 +126,13 @@ export default function StyleGeneratorPage({ style }: StyleGeneratorPageProps) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          prompt: `${style.systemPrompt} ${prompt}`,
-          negativePrompt: `${style.negativeSystemPrompt} ${negativePrompt}`.trim(),
+          prompt: prompt,
+          negativePrompt: negativePrompt || undefined,
           model: selectedModel.id,
           aspectRatio: selectedRatio.id,
           style: style.id,
           fastMode: false,
+          referenceImage: referenceImage || undefined,
         }),
       });
 
@@ -185,6 +188,24 @@ export default function StyleGeneratorPage({ style }: StyleGeneratorPageProps) {
     }
   };
 
+  const handleDownload = async () => {
+    if (!generatedImage) return;
+    try {
+      const response = await fetch(generatedImage.url);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `generated-${generatedImage.prompt.slice(0, 30).replace(/\s+/g, "-")}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Download failed:", error);
+    }
+  };
+
   const handlePublish = async () => {
     if (!generatedImage || !session?.user) return;
     setPublishing(true);
@@ -199,6 +220,26 @@ export default function StyleGeneratorPage({ style }: StyleGeneratorPageProps) {
       console.error("Publish failed:", error);
     } finally {
       setPublishing(false);
+    }
+  };
+
+  const handleToggleLike = async (imageId: string) => {
+    if (!session?.user) return;
+    try {
+      const res = await fetch(`/api/v1/images/${imageId}/like`, { method: "POST" });
+      if (res.ok) {
+        const data = await res.json();
+        setCommunityWorks((prev) =>
+          prev.map((w) => (w.id === imageId ? { ...w, likes: data.likes } : w))
+        );
+        setLikedWorks((prev) => {
+          const next = new Set(prev);
+          if (data.liked) next.add(imageId); else next.delete(imageId);
+          return next;
+        });
+      }
+    } catch (error) {
+      console.error("Error toggling like:", error);
     }
   };
 
@@ -507,7 +548,7 @@ export default function StyleGeneratorPage({ style }: StyleGeneratorPageProps) {
                             {publishing ? "Publishing..." : "Publish to Community"}
                           </button>
                         )}
-                        <button className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-all">
+                        <button onClick={handleDownload} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-all">
                           <Download className="w-4 h-4" />
                         </button>
                       </div>
@@ -526,12 +567,12 @@ export default function StyleGeneratorPage({ style }: StyleGeneratorPageProps) {
                     {!session?.user && (
                       <div className="mt-4 p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-2xl border border-purple-100 text-center">
                         <p className="text-sm text-gray-600 mb-2">Sign in to publish your work to the community</p>
-                        <button
-                          onClick={() => signIn("google")}
-                          className="px-4 py-2 text-sm bg-gradient-to-r from-purple-600 to-pink-500 text-white rounded-xl hover:from-purple-700 hover:to-pink-600 transition-all shadow-md"
+                        <Link
+                          href="/signin"
+                          className="px-4 py-2 text-sm bg-gradient-to-r from-purple-600 to-pink-500 text-white rounded-xl hover:from-purple-700 hover:to-pink-600 transition-all shadow-md inline-block"
                         >
                           Sign In Now
-                        </button>
+                        </Link>
                       </div>
                     )}
                   </div>
@@ -694,10 +735,13 @@ export default function StyleGeneratorPage({ style }: StyleGeneratorPageProps) {
                           </div>
                           <span className="text-xs text-white/80">{work.author}</span>
                         </div>
-                        <div className="flex items-center gap-1 text-white/80">
-                          <Heart className="w-3.5 h-3.5" />
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleToggleLike(work.id); }}
+                          className="flex items-center gap-1 text-white/80 hover:text-red-400 transition-colors"
+                        >
+                          <Heart className={`w-3.5 h-3.5 ${likedWorks.has(work.id) ? "fill-current text-red-400" : ""}`} />
                           <span className="text-xs">{work.likes}</span>
-                        </div>
+                        </button>
                       </div>
                     </div>
                   </div>
