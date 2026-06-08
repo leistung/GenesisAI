@@ -1,287 +1,287 @@
-# GenesisAI Project Check Report
+# GenesisAI 项目检查报告
 
-## Scope
+## 检查范围
 
-Page-by-page feature review, checking frontend/backend implementation status, noting bugs and optimization suggestions.
-
----
-
-## 1. Page Feature Check
-
-### 1. Home Page `/` (page.tsx)
-
-| Feature | Frontend | Backend | Status |
-|---------|----------|---------|--------|
-| Hero section | OK | - | Normal |
-| Gallery display | OK | OK GET /api/images?public=true | Normal |
-| Style template cards | OK | - | Normal |
-| Use cases section | OK | - | Normal |
-| Features section | OK | - | Normal |
-| Testimonials | OK | - | Normal |
-| FAQ | OK | - | Normal |
-
-**Issues:**
-- Gallery display may load too many images without pagination — should limit query
+逐页面梳理功能点，检查前端/后端实现状态，标注 Bug 和优化建议。
 
 ---
 
-### 2. Sign In / Sign Up Pages `/signin`, `/signup` (SignInContent.tsx)
+## 一、页面功能检查
 
-| Feature | Frontend | Backend | Status |
-|---------|----------|---------|--------|
-| Sign in form | OK | OK NextAuth signIn | Normal |
-| Sign up form | OK | OK POST /api/auth/register | Normal |
-| Mode switch (sign in / sign up) | OK | - | Normal |
-| Error toast | OK | - | Normal |
-| Success toast | OK | - | Normal |
-| URL error param parsing | OK | - | Normal |
-| Google OAuth | OK | OK NextAuth Google Provider | Normal |
-| Password show/hide | OK | - | Normal |
-| Client-side form validation | OK | - | Normal |
+### 1. 首页 `/` (page.tsx)
 
-**Issues:**
-- None currently
+| 功能点 | 前端 | 后端 | 状态 |
+|--------|------|------|------|
+| Hero 展示 | ✅ | - | 正常 |
+| Gallery 展示 | ✅ | ✅ GET /api/images?public=true | 正常 |
+| 风格模板卡片 | ✅ | - | 正常 |
+| 用例展示 | ✅ | - | 正常 |
+| 功能特性展示 | ✅ | - | 正常 |
+| 用户评价 | ✅ | - | 正常 |
+| FAQ | ✅ | - | 正常 |
 
----
-
-### 3. Dashboard `/dashboard` (DashboardPage)
-
-| Feature | Frontend | Backend | Status |
-|---------|----------|---------|--------|
-| Stats cards (images/credits/tier) | OK | OK GET /api/credits, GET /api/images | Normal |
-| Image grid display | OK | OK GET /api/images | Normal |
-| Cursor pagination load more | OK | OK cursor param | Normal |
-| Download image | OK | - | Normal |
-| Delete image | OK | OK DELETE /api/images/:id | Normal |
-| Manage subscription | OK | OK POST /api/creem/portal | Normal |
-| Upgrade plan link | OK | - | Normal |
-
-**Issues:**
-- Total Images shows currently loaded count only — shows "20+" when more exist
-- manageSubscription shows toast error when Creem Portal call fails
+**问题：**
+- Gallery 展示未使用分页，可能加载过多图片，应限制 limit
 
 ---
 
-### 4. Community Gallery `/community` (CommunityPage)
+### 2. 登录/注册页 `/signin`, `/signup` (SignInContent.tsx)
 
-| Feature | Frontend | Backend | Status |
-|---------|----------|---------|--------|
-| Style filtering | OK | OK style param | Normal |
-| Image grid display | OK | OK GET /api/images?public=true | Normal |
-| Download image | OK | - | Normal |
-| Like | OK | OK POST /api/v1/images/:id/like | Normal |
-| Bookmark | OK | OK POST /api/v1/bookmarks | Normal |
-| Paginated load more | OK | OK cursor param | Normal |
+| 功能点 | 前端 | 后端 | 状态 |
+|--------|------|------|------|
+| 登录表单 | ✅ | ✅ NextAuth signIn | 正常 |
+| 注册表单 | ✅ | ✅ POST /api/auth/register | 正常 |
+| 登录/注册模式切换 | ✅ | - | 正常 |
+| 错误提示 Toast | ✅ | - | 正常 |
+| 成功提示 Toast | ✅ | - | 正常 |
+| URL 错误参数解析 | ✅ | - | 正常 |
+| Google OAuth | ✅ | ✅ NextAuth Google Provider | 正常 |
+| 密码显示/隐藏 | ✅ | - | 正常 |
+| 客户端表单验证 | ✅ | - | 正常 |
 
-**Issues:**
-- Some images have `style: null`, filtered out by style filter — fixed with OR query including null
-
----
-
-### 5. Pricing Page `/pricing` (PricingPage)
-
-| Feature | Frontend | Backend | Status |
-|---------|----------|---------|--------|
-| Plan display | OK | OK GET /api/creem/products | Normal |
-| Monthly/yearly toggle | OK | - | Normal |
-| Current plan indicator | OK | OK session.subscriptionTier | Normal |
-| Creem checkout redirect | OK | OK POST /api/creem/checkout | Normal |
-| Unauthenticated redirect to sign in | OK | - | Normal |
-
-**Issues:**
-- Yearly plans may not have Creem Product IDs — needs Creem dashboard configuration
-- Free tier "Get Started Free" button redirects to `/signin`, no effect for logged-in users
+**问题：**
+- 无
 
 ---
 
-### 6. Settings Page `/settings` (SettingsPage)
+### 3. 仪表盘 `/dashboard` (DashboardPage)
 
-| Feature | Frontend | Backend | Status |
-|---------|----------|---------|--------|
-| Change name | OK | OK PATCH /api/v1/user/profile | Normal |
-| Display email (read-only) | OK | - | Normal |
-| Change password | OK | OK PATCH /api/v1/user/password | Normal |
-| Toast notifications | OK | - | Normal (auto-dismiss in 5s) |
-| Password show/hide | OK | - | Normal |
-| Hide password for OAuth users | OK | OK GET /api/v1/user/has-password | Normal |
+| 功能点 | 前端 | 后端 | 状态 |
+|--------|------|------|------|
+| 统计卡片（图片数/积分/套餐） | ✅ | ✅ GET /api/credits, GET /api/images | 正常 |
+| 图片网格展示 | ✅ | ✅ GET /api/images | 正常 |
+| 游标分页加载更多 | ✅ | ✅ cursor 参数 | 正常 |
+| 下载图片 | ✅ | - | 正常 |
+| 删除图片 | ✅ | ✅ DELETE /api/images/:id | 正常 |
+| 管理订阅 | ✅ | ✅ POST /api/creem/portal | 正常 |
+| 升级套餐链接 | ✅ | - | 正常 |
 
-**Issues:**
-- None currently
-
----
-
-### 7. Auth Error Page `/auth/error` (AuthError)
-
-| Feature | Frontend | Backend | Status |
-|---------|----------|---------|--------|
-| Error message display | OK | - | Normal |
-| Retry button | OK | - | Normal |
-| Back to home | OK | - | Normal |
-
-**No Issues**
+**问题：**
+- Total Images 只显示当前加载数量 — 显示 "20+" 表示还有更多
+- manageSubscription 调用失败时有 Toast 错误提示
 
 ---
 
-### 8. Image Generation Pages `/generate/*` (StyleGeneratorPage)
+### 4. 社区画廊 `/community` (CommunityPage)
 
-| Feature | Frontend | Backend | Status |
-|---------|----------|---------|--------|
-| Prompt input | OK | OK POST /api/generate | Normal |
-| Negative prompt | OK | OK negativePrompt | Normal |
-| Model selection | OK | OK model param | Normal |
-| Aspect ratio selection | OK | OK aspectRatio | Normal |
-| Reference image upload | OK | OK Stability AI supports | Normal |
-| SSE progress display | OK | OK text/event-stream | Normal |
-| Credits display | OK | OK GET /api/credits | Normal |
-| Publish to community | OK | OK PATCH /api/images/:id | Normal |
-| Community works display | OK | OK GET /api/images?public=true | Normal |
-| Random prompt | OK | - | Normal |
-| Download generated image | OK | - | Normal |
-| Like community works | OK | OK POST /api/v1/images/:id/like | Normal |
+| 功能点 | 前端 | 后端 | 状态 |
+|--------|------|------|------|
+| 风格筛选 | ✅ | ✅ style 参数 | 正常 |
+| 图片网格展示 | ✅ | ✅ GET /api/images?public=true | 正常 |
+| 下载图片 | ✅ | - | 正常 |
+| 点赞 | ✅ | ✅ POST /api/v1/images/:id/like | 正常 |
+| 收藏 | ✅ | ✅ POST /api/v1/bookmarks | 正常 |
+| 分页加载更多 | ✅ | ✅ cursor 参数 | 正常 |
 
-**Issues:**
-- Community works section has no pagination — only loads limit=12
+**问题：**
+- 部分图片 `style` 为 null，筛选时被遗漏 — 已通过 OR 查询修复
 
 ---
 
-## 2. Backend API Bug Check
+### 5. 定价页 `/pricing` (PricingPage)
 
-### 1. `/api/generate` — Image Generation
+| 功能点 | 前端 | 后端 | 状态 |
+|--------|------|------|------|
+| 套餐展示 | ✅ | ✅ GET /api/creem/products | 正常 |
+| 月付/年付切换 | ✅ | - | 正常 |
+| 当前套餐标识 | ✅ | ✅ session.subscriptionTier | 正常 |
+| Creem 结账跳转 | ✅ | ✅ POST /api/creem/checkout | 正常 |
+| 未登录跳转登录 | ✅ | - | 正常 |
 
-| Issue | Severity | Description |
-|-------|----------|-------------|
-| Premium user credits returns Infinity | Medium | `checkAndConsumeCredits` returns `remainingCredits: Infinity` for premium users, `JSON.stringify(Infinity)` becomes `null` — fixed: returns 999999 |
-| Credit refund not transactional | Medium | Credit deduction and refund are not atomic; if refund fails, user loses credits |
-| Replicate polling may block SSE | Low | Replicate polling up to 120s, SSE connection may timeout |
-
-### 2. `/api/images` — Image List
-
-| Issue | Severity | Description |
-|-------|----------|-------------|
-| Public image style filter misses null | Medium | Many images have `style: null`, `where: { style: "anime" }` misses them — fixed with OR query |
-| User images no style filter | Low | User mode doesn't support style filtering |
-
-### 3. `/api/credits` — Credits
-
-| Issue | Severity | Description |
-|-------|----------|-------------|
-| addCreditsToUser no upper bound check | Low | Admin can add unlimited credits |
-
-### 4. `/api/creem/webhook` — Payment Webhook
-
-| Issue | Severity | Description |
-|-------|----------|-------------|
-| Creem amount unit uncertain | Medium | Code assumes Creem amounts are in cents (divides by 100), but Creem docs may use different units |
-| checkout.completed and subscription.active may double-process | Medium | If checkout is subscription type, both events fire — fixed with subscriptionId dedup check |
-| subscription.paid creemOrderId format is synthetic | Low | `sub_${data.id}_paid_${Date.now()}` is not a real Creem order ID, may conflict with `@unique` constraint |
-
-### 5. `/api/creem/checkout` — Checkout
-
-| Issue | Severity | Description |
-|-------|----------|-------------|
-| Creem API URL may be incorrect | Medium | `https://api.creem.io/v1/checkouts` needs confirmation |
-
-### 6. `/api/v1/bookmarks` — Bookmarks
-
-| Issue | Severity | Description |
-|-------|----------|-------------|
-| No pagination | Low | Bookmark list has no pagination, performance issue with large datasets |
-
-### 7. `/api/v1/images/:id/like` — Likes
-
-| Issue | Severity | Description |
-|-------|----------|-------------|
-| Duplicate like prevention | Fixed | Added Like model with composite unique constraint + transactional toggle logic |
+**问题：**
+- 年付套餐可能无 Creem Product ID — 需 Creem 后台配置
+- Free 套餐 "Get Started Free" 按钮跳转到 `/signin`，已登录用户点击无意义
 
 ---
 
-## 3. Cross-Page / Global Issues
+### 6. 设置页 `/settings` (SettingsPage)
+
+| 功能点 | 前端 | 后端 | 状态 |
+|--------|------|------|------|
+| 修改姓名 | ✅ | ✅ PATCH /api/v1/user/profile | 正常 |
+| 显示邮箱（只读） | ✅ | - | 正常 |
+| 修改密码 | ✅ | ✅ PATCH /api/v1/user/password | 正常 |
+| Toast 提示 | ✅ | - | 正常（5秒自动消失） |
+| 密码显示/隐藏 | ✅ | - | 正常 |
+| OAuth 用户隐藏修改密码 | ✅ | ✅ GET /api/v1/user/has-password | 正常 |
+
+**问题：**
+- 无
+
+---
+
+### 7. 认证错误页 `/auth/error` (AuthError)
+
+| 功能点 | 前端 | 后端 | 状态 |
+|--------|------|------|------|
+| 错误信息展示 | ✅ | - | 正常 |
+| 重试按钮 | ✅ | - | 正常 |
+| 返回首页 | ✅ | - | 正常 |
+
+**无问题**
+
+---
+
+### 8. 图片生成页 `/generate/*` (StyleGeneratorPage)
+
+| 功能点 | 前端 | 后端 | 状态 |
+|--------|------|------|------|
+| Prompt 输入 | ✅ | ✅ POST /api/generate | 正常 |
+| 负向 Prompt | ✅ | ✅ negativePrompt | 正常 |
+| 模型选择 | ✅ | ✅ model 参数 | 正常 |
+| 宽高比选择 | ✅ | ✅ aspectRatio | 正常 |
+| 参考图上传 | ✅ | ✅ Stability AI 支持 | 正常 |
+| SSE 进度展示 | ✅ | ✅ text/event-stream | 正常 |
+| 积分显示 | ✅ | ✅ GET /api/credits | 正常 |
+| 发布到社区 | ✅ | ✅ PATCH /api/images/:id | 正常 |
+| 社区作品展示 | ✅ | ✅ GET /api/images?public=true | 正常 |
+| 随机 Prompt | ✅ | - | 正常 |
+| 下载生成图片 | ✅ | - | 正常 |
+| 点赞社区作品 | ✅ | ✅ POST /api/v1/images/:id/like | 正常 |
+
+**问题：**
+- 社区作品区域无分页 — 只加载 limit=12
+
+---
+
+## 二、后端 API Bug 检查
+
+### 1. `/api/generate` — 图片生成
+
+| 问题 | 严重度 | 说明 |
+|------|--------|------|
+| Premium 用户积分返回 Infinity | 中 | `checkAndConsumeCredits` 对 premium 用户返回 `remainingCredits: Infinity`，`JSON.stringify(Infinity)` 变成 `null` — 已修复：返回 999999 |
+| 生成失败后积分退还无事务保护 | 中 | 扣积分和退积分不是原子操作，如果退还失败，用户丢失积分 |
+| Replicate 轮询可能阻塞 SSE | 低 | Replicate 轮询最长 120 秒，期间 SSE 连接可能超时 |
+
+### 2. `/api/images` — 图片列表
+
+| 问题 | 严重度 | 说明 |
+|------|--------|------|
+| 公开图片 style 筛选遗漏 null | 中 | 很多图片 style 为 null，`where: { style: "anime" }` 会遗漏 — 已通过 OR 查询修复 |
+| 用户图片无 style 筛选 | 低 | 用户模式不支持 style 筛选，功能不统一 |
+
+### 3. `/api/credits` — 积分
+
+| 问题 | 严重度 | 说明 |
+|------|--------|------|
+| addCreditsToUser 无上限检查 | 低 | 管理员可以无限加积分 |
+
+### 4. `/api/creem/webhook` — 支付回调
+
+| 问题 | 严重度 | 说明 |
+|------|--------|------|
+| Creem 金额单位不确定 | 中 | 代码假设 Creem 金额为分（除以 100），但 Creem 文档中金额可能是元，需确认 |
+| checkout.completed 与 subscription.active 可能重复处理 | 中 | 如果 checkout 是订阅类型，两个事件都会触发 — 已通过 subscriptionId 去重修复 |
+| subscription.paid 的 creemOrderId 格式自造 | 低 | `sub_${data.id}_paid_${Date.now()}` 不是 Creem 的真实订单 ID，与 `@unique` 约束可能冲突 |
+
+### 5. `/api/creem/checkout` — 结账
+
+| 问题 | 严重度 | 说明 |
+|------|--------|------|
+| Creem API URL 可能不正确 | 中 | `https://api.creem.io/v1/checkouts` 需确认是否为正确的端点 |
+
+### 6. `/api/v1/bookmarks` — 收藏
+
+| 问题 | 严重度 | 说明 |
+|------|--------|------|
+| 无分页 | 低 | 收藏列表没有分页，数据量大时有性能问题 |
+
+### 7. `/api/v1/images/:id/like` — 点赞
+
+| 问题 | 严重度 | 说明 |
+|------|--------|------|
+| 重复点赞防护 | 已修复 | 添加 Like 模型 + 复合唯一约束 + 事务性 toggle 逻辑 |
+
+---
+
+## 三、跨页面/全局问题
 
 ### 1. Middleware
 
-| Issue | Severity | Description |
-|-------|----------|-------------|
-| Session Token Cookie name mismatch risk | Medium | NextAuth v5 default cookie is `authjs.session-token`, but may vary by version |
+| 问题 | 严重度 | 说明 |
+|------|--------|------|
+| Session Token Cookie 名称可能不匹配 | 中 | NextAuth v5 默认 cookie 名是 `authjs.session-token`，但不同版本可能不同 |
 
-### 2. Authentication (auth.ts)
+### 2. 认证 (auth.ts)
 
-| Issue | Severity | Description |
-|-------|----------|-------------|
-| JWT token credits may be stale | Medium | Token credits are snapshot from login; after image generation, credits change but token doesn't update — frontend calls /api/credits for fresh data |
+| 问题 | 严重度 | 说明 |
+|------|--------|------|
+| JWT token 中的积分可能过期 | 中 | token 中的 credits 是登录时的快照，用户生成图片后 credits 变了但 token 没更新 — 前端调用 /api/credits 获取最新数据 |
 
-### 3. Database Schema
+### 3. 数据库 Schema
 
-| Issue | Severity | Description |
-|-------|----------|-------------|
-| Image.style may be null | Low | Many images have null style, filtered out in community filter — fixed with OR query |
+| 问题 | 严重度 | 说明 |
+|------|--------|------|
+| Image.style 可能为 null | 低 | 很多图片 style 为 null，社区筛选时被遗漏 — 已通过 OR 查询修复 |
 
-### 4. Frontend General
+### 4. 前端通用
 
-| Issue | Severity | Description |
-|-------|----------|-------------|
-| Home page Gallery no pagination | Low | May load too many images |
-
----
-
-## 4. Bug Fix Priority
-
-### P0 — Must Fix Immediately
-
-1. ~~**Prompt double concatenation**~~ — Fixed: frontend no longer concatenates systemPrompt, backend handles it
-2. ~~**Download button no function**~~ — Fixed: added handleDownload function and onClick
-3. ~~**Like/bookmark frontend not connected**~~ — Fixed: community page and generation page both connected
-
-### P1 — Should Fix Soon
-
-4. ~~**Community page no pagination**~~ — Fixed: added cursor pagination and "Load More" button
-5. ~~**Premium user credits returns Infinity**~~ — Fixed: returns 999999
-6. ~~**Duplicate likes no limit**~~ — Fixed: added Like model + transactional toggle logic
-7. ~~**OAuth user change password**~~ — Fixed: added has-password API, OAuth users hide password form
-8. ~~**Dashboard Total Images inaccurate**~~ — Fixed: shows "Images" + "+" suffix indicating more exist
-
-### P2 — Suggested Fixes
-
-9. ~~**Reference image upload not sent to backend**~~ — Fixed: frontend sends referenceImage, backend Stability AI supports it
-10. **Yearly plans no Product ID** — Yearly checkout unavailable (needs Creem dashboard configuration)
-11. ~~**Plan data hardcoded**~~ — Fixed: fetches from /api/creem/products first, falls back to hardcoded
-12. ~~**checkout.completed and subscription.active double processing**~~ — Fixed: added subscriptionId dedup check
-13. ~~**Settings Toast no auto-dismiss**~~ — Fixed: added 5s auto-dismiss
-14. ~~**Login success loading not reset**~~ — Fixed: setLoading(false) called after successful login
-
-### Other Fixed
-
-15. ~~**Dashboard manageSubscription no error feedback**~~ — Fixed: added Toast error feedback
-16. ~~**Public image style filter misses null**~~ — Fixed: OR query includes style=null images
-17. ~~**Unauthenticated user Sign In only supports Google**~~ — Fixed: changed to Link redirect to /signin
-18. ~~**Login mode password minLength=6 restriction**~~ — Fixed: only register mode restricts minLength
+| 问题 | 严重度 | 说明 |
+|------|--------|------|
+| 首页 Gallery 没有分页 | 低 | 可能加载过多图片 |
 
 ---
 
-## 5. Feature Completeness Matrix
+## 四、Bug 修复优先级排序
 
-| Feature | Frontend | Backend | Database | Status |
-|---------|----------|---------|----------|--------|
-| Email/password sign in | OK | OK | OK | Complete |
-| Google sign in | OK | OK | OK | Complete |
-| User registration | OK | OK | OK | Complete |
-| Image generation | OK | OK | OK | Complete |
-| Image download | OK | - | - | Complete |
-| Image delete | OK | OK | OK | Complete |
-| Image publish/unpublish | OK | OK | OK | Complete |
-| Community browsing | OK | OK | OK | Complete |
-| Community pagination | OK | OK | - | Complete |
-| Style filtering | OK | OK | - | Complete |
-| Like | OK | OK | OK | Complete (Like model prevents duplicates) |
-| Bookmark | OK | OK | OK | Complete |
-| Credits system | OK | OK | OK | Complete |
-| Credits top-up | OK | OK | OK | Complete (admin only) |
-| Creem checkout | OK | OK | - | Complete |
-| Creem Webhook | - | OK | OK | Complete |
-| Manage subscription | OK | OK | OK | Complete |
-| Update profile | OK | OK | OK | Complete |
-| Change password | OK | OK | OK | Complete (hidden for OAuth users) |
-| Reference image upload | OK | OK | - | Complete (Stability AI supports) |
-| S3/R2 storage | - | OK | - | Complete |
-| Rate limiting | - | OK | - | Complete |
-| Logging | - | OK | - | Complete |
-| Middleware guard | OK | OK | - | Complete |
+### P0 — 必须立即修复
+
+1. ~~**Prompt 双重拼接**~~ — ✅ 已修复：前端不再拼接 systemPrompt，由后端统一处理
+2. ~~**下载按钮无功能**~~ — ✅ 已修复：添加了 handleDownload 函数和 onClick 事件
+3. ~~**点赞/收藏前端未接入**~~ — ✅ 已修复：社区页和生成页均已接入
+
+### P1 — 应尽快修复
+
+4. ~~**社区页面无分页**~~ — ✅ 已修复：添加了游标分页和"加载更多"按钮
+5. ~~**Premium 用户积分返回 Infinity**~~ — ✅ 已修复：改为返回 999999
+6. ~~**重复点赞无限制**~~ — ✅ 已修复：添加 Like 模型 + 事务性 toggle 逻辑
+7. ~~**OAuth 用户修改密码**~~ — ✅ 已修复：添加 has-password API，OAuth 用户隐藏修改密码表单
+8. ~~**Dashboard Total Images 不准确**~~ — ✅ 已修复：显示 "Images" + "+" 后缀表示还有更多
+
+### P2 — 建议修复
+
+9. ~~**参考图上传未传给后端**~~ — ✅ 已修复：前端传 referenceImage，后端 Stability AI 支持
+10. **年付套餐无 Product ID** — 年付无法结账（需 Creem 后台配置）
+11. ~~**套餐数据硬编码**~~ — ✅ 已修复：优先从 /api/creem/products 获取，回退到硬编码
+12. ~~**checkout.completed 与 subscription.active 重复处理**~~ — ✅ 已修复：添加 subscriptionId 去重检查
+13. ~~**Settings Toast 不自动消失**~~ — ✅ 已修复：添加 5 秒自动消失
+14. ~~**登录成功 loading 未重置**~~ — ✅ 已修复：登录成功后调用 setLoading(false)
+
+### 其他已修复
+
+15. ~~**Dashboard manageSubscription 无错误提示**~~ — ✅ 已修复：添加 Toast 错误提示
+16. ~~**公开图片 style 筛选遗漏 null**~~ — ✅ 已修复：OR 查询包含 style=null 的图片
+17. ~~**未登录用户生成后 Sign In 只支持 Google**~~ — ✅ 已修复：改为 Link 跳转到 /signin
+18. ~~**登录模式密码 minLength=6 限制**~~ — ✅ 已修复：仅注册模式限制 minLength
+
+---
+
+## 五、功能完整性矩阵
+
+| 功能 | 前端 | 后端 | 数据库 | 状态 |
+|------|------|------|--------|------|
+| 邮箱密码登录 | ✅ | ✅ | ✅ | 完整 |
+| Google 登录 | ✅ | ✅ | ✅ | 完整 |
+| 用户注册 | ✅ | ✅ | ✅ | 完整 |
+| 图片生成 | ✅ | ✅ | ✅ | 完整 |
+| 图片下载 | ✅ | - | - | 完整 |
+| 图片删除 | ✅ | ✅ | ✅ | 完整 |
+| 图片发布/取消发布 | ✅ | ✅ | ✅ | 完整 |
+| 社区浏览 | ✅ | ✅ | ✅ | 完整 |
+| 社区分页 | ✅ | ✅ | - | 完整 |
+| 风格筛选 | ✅ | ✅ | - | 完整 |
+| 点赞 | ✅ | ✅ | ✅ | 完整（Like 模型防重复） |
+| 收藏 | ✅ | ✅ | ✅ | 完整 |
+| 积分系统 | ✅ | ✅ | ✅ | 完整 |
+| 积分充值 | ✅ | ✅ | ✅ | 完整（限管理员） |
+| Creem 结账 | ✅ | ✅ | - | 完整 |
+| Creem Webhook | - | ✅ | ✅ | 完整 |
+| 管理订阅 | ✅ | ✅ | ✅ | 完整 |
+| 修改资料 | ✅ | ✅ | ✅ | 完整 |
+| 修改密码 | ✅ | ✅ | ✅ | 完整（OAuth 用户隐藏） |
+| 参考图上传 | ✅ | ✅ | - | 完整（Stability AI 支持） |
+| S3/R2 存储 | - | ✅ | - | 完整 |
+| 限流 | - | ✅ | - | 完整 |
+| 日志 | - | ✅ | - | 完整 |
+| Middleware 守卫 | ✅ | ✅ | - | 完整 |
