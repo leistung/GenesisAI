@@ -91,7 +91,7 @@ export default function Header() {
             </span>
           </Link>
 
-          <nav className="hidden lg:flex items-center space-x-1">
+          <nav className="hidden lg:flex items-center space-x-1 ml-4">
             {navLinks.map((link) => {
               const isActive = pathname === link.href;
               const Icon = link.icon;

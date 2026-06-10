@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 图像生成平台 — 五大专区</title>
+<style>
+/* ===== RESET & GLOBAL ===== */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0f0f14; --bg2:#1a1a24; --bg3:#24243a;
+  --text:#e0e0e8; --text2:#9898b0; --text3:#6a6a82;
+  --radius:12px; --radius-sm:8px; --radius-xs:4px;
+  --transition:0.3s cubic-bezier(0.4,0,0.2,1);
+  --shadow:0 4px 24px rgba(0,0,0,0.4);
+}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;
+  background:var(--bg); color:var(--text); min-height:100vh; line-height:1.6;
+  overflow-x:hidden;
+}
+.container{max-width:1280px;margin:0 auto;padding:0 24px}
+
+/* ===== HEADER ===== */
+.header{
+  padding:20px 0;
+  border-bottom:1px solid rgba(255,255,255,0.06);
+  backdrop-filter:blur(12px);
+  position:sticky; top:0; z-index:100;
+  background:rgba(15,15,20,0.85);
+}
+.header-inner{
+  display:flex; align-items:center; justify-content:space-between;
+  max-width:1280px; margin:0 auto; padding:0 24px;
+}
+.logo{
+  display:flex; align-items:center; gap:10px; font-size:20px; font-weight:700;
+  background:linear-gradient(135deg,#a78bfa,#f472b6,#60a5fa);
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+}
+.logo-icon{font-size:28px}
+
+/* ===== TAB NAVIGATION ===== */
+.tab-nav{
+  display:flex; gap:4px; background:var(--bg2); border-radius:var(--radius);
+  padding:4px; margin:24px 0;
+}
+.tab-btn{
+  flex:1; padding:14px 20px; border:none; background:transparent; color:var(--text2);
+  font-size:15px; font-weight:500; cursor:pointer; border-radius:10px;
+  transition:var(--transition); display:flex; align-items:center; justify-content:center;
+  gap:8px; position:relative; white-space:nowrap;
+}
+.tab-btn:hover{color:var(--text);background:rgba(255,255,255,0.04)}
+.tab-btn.active{color:#fff;font-weight:600;box-shadow:0 2px 12px rgba(0,0,0,0.3)}
+.tab-btn .tab-icon{font-size:20px}
+
+/* Tab-specific active colors */
+.tab-btn.anime.active{background:linear-gradient(135deg,#ec4899,#a855f7)}
+.tab-btn.creative.active{background:linear-gradient(135deg,#f59e0b,#ef4444,#8b5cf6)}
+.tab-btn.landscape.active{background:linear-gradient(135deg,#10b981,#3b82f6)}
+.tab-btn.portrait.active{background:linear-gradient(135deg,#f97316,#dc2626)}
+.tab-btn.product.active{background:linear-gradient(135deg,#2563eb,#06b6d4)}
+
+/* ===== MAIN CONTENT ===== */
+.main-content{display:flex;gap:24px;margin-bottom:48px}
+
+/* ===== LEFT PANEL — Parameters ===== */
+.left-panel{flex:1;min-width:0}
+.param-panel{
+  background:var(--bg2); border-radius:var(--radius); padding:28px;
+  box-shadow:var(--shadow); transition:var(--transition);
+}
+
+/* Zone accent borders */
+.zone-anime .param-panel{border-top:3px solid #ec4899}
+.zone-creative .param-panel{border-top:3px solid #f59e0b}
+.zone-landscape .param-panel{border-top:3px solid #10b981}
+.zone-portrait .param-panel{border-top:3px solid #f97316}
+.zone-product .param-panel{border-top:3px solid #2563eb}
+
+.panel-title{
+  font-size:22px; font-weight:700; margin-bottom:4px; display:flex; align-items:center; gap:10px;
+}
+.panel-subtitle{font-size:13px;color:var(--text3);margin-bottom:24px}
+
+/* Prompt */
+.prompt-group{margin-bottom:24px}
+.prompt-group label{display:block;font-size:13px;font-weight:600;margin-bottom:8px;color:var(--text2)}
+.prompt-input{
+  width:100%; padding:14px 16px; background:var(--bg3); border:1px solid rgba(255,255,255,0.08);
+  border-radius:var(--radius-sm); color:var(--text); font-size:14px;
+  resize:vertical; min-height:100px; font-family:inherit;
+  transition:var(--transition);
+}
+.prompt-input:focus{outline:none;border-color:rgba(255,255,255,0.2);box-shadow:0 0 0 3px rgba(255,255,255,0.04)}
+
+/* Parameter groups */
+.param-section{margin-bottom:20px}
+.param-section-title{
+  font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;
+  color:var(--text3);margin-bottom:12px;display:flex;align-items:center;gap:6px;
+}
+.param-section-title::after{
+  content:'';flex:1;height:1px;background:rgba(255,255,255,0.06);
+}
+
+/* Chip selector */
+.chip-group{display:flex;flex-wrap:wrap;gap:8px}
+.chip{
+  padding:8px 16px; border-radius:20px; border:1px solid rgba(255,255,255,0.1);
+  background:transparent; color:var(--text2); font-size:13px; cursor:pointer;
+  transition:var(--transition); font-family:inherit;
+}
+.chip:hover{border-color:rgba(255,255,255,0.3);color:var(--text)}
+.chip.selected{border-color:transparent;color:#fff;font-weight:600}
+
+/* Zone-specific chip colors */
+.zone-anime .chip.selected{background:linear-gradient(135deg,#ec4899,#a855f7)}
+.zone-creative .chip.selected{background:linear-gradient(135deg,#f59e0b,#ef4444)}
+.zone-landscape .chip.selected{background:linear-gradient(135deg,#10b981,#059669)}
+.zone-portrait .chip.selected{background:linear-gradient(135deg,#f97316,#dc2626)}
+.zone-product .chip.selected{background:linear-gradient(135deg,#2563eb,#06b6d4)}
+
+/* Slider */
+.slider-group{margin-bottom:16px}
+.slider-group .slider-label{display:flex;justify-content:space-between;margin-bottom:6px}
+.slider-group .slider-label span{font-size:13px;color:var(--text2)}
+.slider-group .slider-label .slider-val{font-weight:600}
+.slider-group input[type=range]{
+  width:100%; -webkit-appearance:none; height:6px; border-radius:3px;
+  background:var(--bg3); outline:none;
+}
+.slider-group input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:20px;height:20px;border-radius:50%;cursor:pointer;
+  border:2px solid #fff; transition:var(--transition);
+}
+.zone-anime .slider-group input[type=range]::-webkit-slider-thumb{background:#ec4899}
+.zone-creative .slider-group input[type=range]::-webkit-slider-thumb{background:#f59e0b}
+.zone-landscape .slider-group input[type=range]::-webkit-slider-thumb{background:#10b981}
+.zone-portrait .slider-group input[type=range]::-webkit-slider-thumb{background:#f97316}
+.zone-product .slider-group input[type=range]::-webkit-slider-thumb{background:#2563eb}
+
+/* Select */
+.select-group{margin-bottom:16px}
+.select-group label{display:block;font-size:13px;font-weight:600;margin-bottom:6px;color:var(--text2)}
+.select-group select{
+  width:100%; padding:10px 14px; background:var(--bg3); border:1px solid rgba(255,255,255,0.08);
+  border-radius:var(--radius-sm); color:var(--text); font-size:14px; cursor:pointer;
+  font-family:inherit;
+}
+.select-group select:focus{outline:none;border-color:rgba(255,255,255,0.2)}
+
+/* Toggle */
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0}
+.toggle-row span{font-size:13px;color:var(--text2)}
+.toggle{
+  width:44px;height:24px;border-radius:12px;background:var(--bg3);
+  position:relative;cursor:pointer;transition:var(--transition);
+}
+.toggle.on{background:#10b981}
+.toggle::after{
+  content:'';width:20px;height:20px;border-radius:50%;background:#fff;
+  position:absolute;top:2px;left:2px;transition:var(--transition);
+}
+.toggle.on::after{left:22px}
+
+/* Tags row */
+.tags-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.tag{
+  padding:4px 12px;border-radius:12px;font-size:11px;
+  background:rgba(255,255,255,0.05); color:var(--text3);
+  display:flex;align-items:center;gap:4px; cursor:pointer; transition:var(--transition);
+}
+.tag:hover{background:rgba(255,255,255,0.1);color:var(--text2)}
+.tag .tag-remove{font-size:14px;line-height:1;opacity:0.5}
+.tag .tag-remove:hover{opacity:1}
+
+/* ===== RIGHT PANEL — Preview ===== */
+.right-panel{width:420px;flex-shrink:0;display:flex;flex-direction:column;gap:20px}
+.preview-card{
+  background:var(--bg2); border-radius:var(--radius);
+  overflow:hidden; box-shadow:var(--shadow);
+}
+.preview-header{
+  padding:14px 20px; display:flex; align-items:center; justify-content:space-between;
+  border-bottom:1px solid rgba(255,255,255,0.06);
+  font-size:14px; font-weight:600;
+}
+.preview-area{
+  aspect-ratio:1; display:flex; align-items:center; justify-content:center;
+  color:var(--text3); font-size:14px;
+  position:relative; overflow:hidden;
+}
+.zone-anime .preview-area{background:linear-gradient(135deg,rgba(236,72,153,0.08),rgba(168,85,247,0.08))}
+.zone-creative .preview-area{background:linear-gradient(135deg,rgba(245,158,11,0.08),rgba(239,68,68,0.08))}
+.zone-landscape .preview-area{background:linear-gradient(135deg,rgba(16,185,129,0.08),rgba(59,130,246,0.08))}
+.zone-portrait .preview-area{background:linear-gradient(135deg,rgba(249,115,22,0.08),rgba(220,38,38,0.08))}
+.zone-product .preview-area{background:linear-gradient(135deg,rgba(37,99,235,0.08),rgba(6,182,212,0.08))}
+
+.preview-placeholder{
+  display:flex;flex-direction:column;align-items:center;gap:12px
+}
+.preview-placeholder .ph-icon{font-size:48px;opacity:0.3}
+
+/* Info cards */
+.info-cards{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.info-card{
+  background:var(--bg2); border-radius:var(--radius-sm); padding:16px;
+  box-shadow:var(--shadow);
+}
+.info-card .ic-icon{font-size:22px;margin-bottom:6px}
+.info-card .ic-value{font-size:18px;font-weight:700}
+.info-card .ic-label{font-size:11px;color:var(--text3);margin-top:2px}
+
+/* Generate button */
+.generate-btn{
+  width:100%; padding:16px; border:none; border-radius:var(--radius-sm);
+  color:#fff; font-size:16px; font-weight:700; cursor:pointer;
+  transition:var(--transition); letter-spacing:0.5px;
+  display:flex;align-items:center;justify-content:center;gap:10px;
+}
+.generate-btn:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,0.4)}
+.generate-btn:active{transform:translateY(0)}
+.zone-anime .generate-btn{background:linear-gradient(135deg,#ec4899,#a855f7)}
+.zone-creative .generate-btn{background:linear-gradient(135deg,#f59e0b,#ef4444)}
+.zone-landscape .generate-btn{background:linear-gradient(135deg,#10b981,#3b82f6)}
+.zone-portrait .generate-btn{background:linear-gradient(135deg,#f97316,#dc2626)}
+.zone-product .generate-btn{background:linear-gradient(135deg,#2563eb,#06b6d4)}
+
+/* ===== ADVANTAGES ===== */
+.advantages{margin-bottom:48px}
+.advantages-title{
+  text-align:center; font-size:24px; font-weight:700; margin-bottom:8px;
+}
+.advantages-sub{text-align:center;color:var(--text3);font-size:14px;margin-bottom:32px}
+
+.compare-table{
+  width:100%; border-collapse:separate; border-spacing:0;
+  background:var(--bg2); border-radius:var(--radius); overflow:hidden;
+  box-shadow:var(--shadow);
+}
+.compare-table th{
+  padding:16px 20px; font-size:13px; font-weight:700; text-align:left;
+  background:rgba(255,255,255,0.03);
+}
+.compare-table th:first-child{width:140px}
+.compare-table td{
+  padding:14px 20px; font-size:13px; border-top:1px solid rgba(255,255,255,0.04);
+  color:var(--text2);
+}
+.compare-table td:first-child{font-weight:600;color:var(--text)}
+.compare-table .check{color:#10b981;font-weight:700}
+.compare-table .partial{color:#f59e0b;font-weight:700}
+.compare-table .cross{color:#ef4444;font-weight:700}
+.compare-table tr:hover td{background:rgba(255,255,255,0.02)}
+
+/* Zone feature badges */
+.zone-features{display:grid;grid-template-columns:repeat(5,1fr);gap:16px;margin-top:32px}
+.zone-feature-card{
+  background:var(--bg2); border-radius:var(--radius); padding:24px 20px;
+  text-align:center; box-shadow:var(--shadow); transition:var(--transition);
+}
+.zone-feature-card:hover{transform:translateY(-4px)}
+.zone-feature-card .zf-icon{font-size:32px;margin-bottom:10px}
+.zone-feature-card .zf-name{font-weight:700;font-size:14px;margin-bottom:6px}
+.zone-feature-card .zf-desc{font-size:12px;color:var(--text3);line-height:1.5}
+.zone-feature-card.zf-anime{border-top:3px solid #ec4899}
+.zone-feature-card.zf-creative{border-top:3px solid #f59e0b}
+.zone-feature-card.zf-landscape{border-top:3px solid #10b981}
+.zone-feature-card.zf-portrait{border-top:3px solid #f97316}
+.zone-feature-card.zf-product{border-top:3px solid #2563eb}
+
+/* ===== FOOTER ===== */
+.footer{
+  text-align:center; padding:32px 0; border-top:1px solid rgba(255,255,255,0.06);
+  color:var(--text3); font-size:12px;
+}
+
+/* ===== ANIMATIONS ===== */
+@keyframes fadeSlideIn{
+  from{opacity:0;transform:translateY(8px)}
+  to{opacity:1;transform:translateY(0)}
+}
+.panel-animate{animation:fadeSlideIn 0.4s ease-out}
+
+/* ===== RESPONSIVE ===== */
+@media(max-width:1024px){
+  .main-content{flex-direction:column}
+  .right-panel{width:100%}
+  .zone-features{grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}
+}
+@media(max-width:768px){
+  .tab-nav{flex-wrap:wrap}
+  .tab-btn{flex:1 1 auto; font-size:13px; padding:10px 12px}
+  .tab-btn .tab-icon{font-size:16px}
+  .header-inner{flex-direction:column;gap:8px}
+  .zone-features{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:480px){
+  .tab-btn{font-size:11px; padding:8px 6px; gap:4px}
+  .tab-btn .tab-icon{font-size:14px}
+  .param-panel{padding:16px}
+  .zone-features{grid-template-columns:1fr}
+  .info-cards{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body class="zone-anime">
+
+<!-- ===== HEADER ===== -->
+<header class="header">
+  <div class="header-inner">
+    <div class="logo">
+      <span class="logo-icon">✨</span> AI 画境 · ImageStudio
+    </div>
+    <div style="font-size:12px;color:var(--text3)">
+      专业级 AI 图像生成 · 五大领域深度优化
+    </div>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- ===== TAB NAVIGATION ===== -->
+  <nav class="tab-nav" id="tabNav">
+    <button class="tab-btn anime active" data-zone="anime" onclick="switchZone('anime')">
+      <span class="tab-icon">🎬</span> 动画
+    </button>
+    <button class="tab-btn creative" data-zone="creative" onclick="switchZone('creative')">
+      <span class="tab-icon">🎨</span> 艺术
+    </button>
+    <button class="tab-btn landscape" data-zone="landscape" onclick="switchZone('landscape')">
+      <span class="tab-icon">🏔️</span> 风景
+    </button>
+    <button class="tab-btn portrait" data-zone="portrait" onclick="switchZone('portrait')">
+      <span class="tab-icon">📷</span> 人像
+    </button>
+    <button class="tab-btn product" data-zone="product" onclick="switchZone('product')">
+      <span class="tab-icon">📦</span> 产品
+    </button>
+  </nav>
+
+  <!-- ===== MAIN CONTENT ===== -->
+  <div class="main-content">
+
+    <!-- LEFT: PARAMETERS -->
+    <div class="left-panel">
+
+      <!-- ===== ANIME PANEL ===== -->
+      <div class="param-panel panel-animate" id="panel-anime">
+        <div class="panel-title">🎬 动画专区 <span style="font-size:12px;color:#ec4899;font-weight:400;margin-left:auto">二次元角色生成引擎</span></div>
+        <div class="panel-subtitle">专为动漫角色、插画场景优化的 AI 模型 · 支持多种主流画风</div>
+
+        <div class="prompt-group">
+          <label>🎯 描述你的角色</label>
+          <textarea class="prompt-input" placeholder="例如：一个穿着和服的少女，站在樱花树下，长发飘飘，日系赛璐璐风格，柔和光影...">一个银发少女，JK制服，站在东京霓虹街头，夜晚，赛璐璐风格，高细节</textarea>
+        </div>
+
+        <div class="param-section">
+          <div class="param-section-title">🎨 画风流派</div>
+          <div class="chip-group" id="anime-style">
+            <button class="chip selected" data-val="cel">日系赛璐璐</button>
+            <button class="chip" data-val="shinkai">新海诚风</button>
+            <button class="chip" data-val="ghibli">吉卜力风</button>
+            <button class="chip" data-val="kyoani">京阿尼风</button>
+            <button class="chip" data-val="manga">漫画线稿</button>
+            <button class="chip" data-val="mecha">机甲风</button>
+          </div>
+        </div>
+
+        <div class="param-section">
+          <div class="param-section-title">👤 角色类型</div>
+          <div class="chip-group" id="anime-char">
+            <button class="chip selected" data-val="shojo">少女</button>
+            <button class="chip" data-val="shonen">少年</button>
+            <button class="chip" data-val="loli">萝莉</button>
+            <button class="chip" data-val="onee">御姐</button>
+            <button class="chip" data-val="kemono">兽耳</button>
+            <button class="chip" data-val="fantasy">幻想生物</button>
+          </div>
+        </div>
+
+        <div class="param-section">
+          <div class="param-section-title">😊 表情设定</div>
+          <div class="chip-group" id="anime-expression">
+            <button class="chip selected" data-val="smile">微笑</button>
+            <button class="chip" data-val="surprised">惊讶</button>
+            <button class="chip" data-val="tsundere">傲娇</button>
+            <button class="chip" data-val="cool">冷酷</button>
+            <button class="chip" data-val="cry">流泪</button>
+            <button class="chip" data-val="blush">害羞</button>
+          </div>
+        </div>
+
+        <div class="slider-group">
+          <div class="slider-label"><span>🌈 色彩饱和度</span><span class="slider-val" id="anime-sat-val">75%</span></div>
+          <input type="range" min="0" max="100" value="75" id="anime-sat" oninput="updateSlider('anime-sat-val',this.value,'%')">
+        </div>
+        <div class="slider-group">
+          <div class="slider-label"><span>📐 细节程度</span><span class="slider-val" id="anime-detail-val">80%</span></div>
+          <input type="range" min="0" max="100" value="80" id="anime-detail" oninput="updateSlider('anime-detail-val',this.value,'%')">
+        </div>
+
+        <div class="toggle-row">
+          <span>🔄 角色一致性保持（跨图保持同一角色）</span>
+          <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+        </div>
+        <div class="toggle-row">
+          <span>📱 适配手机壁纸比例 (9:16)</span>
+          <div class="toggle" onclick="this.classList.toggle('on')"></div>
+        </div>
+      </div>
+
+      <!-- ===== CREATIVE PANEL ===== -->
+      <div class="param-panel panel-animate" id="panel-creative" style="display:none">
+        <div class="panel-title">🎨 艺术专区 <span style="font-size:12px;color:#f59e0b;font-weight:400;margin-left:auto">风格化创作引擎</span></div>
+        <div class="panel-subtitle">融合世界艺术流派 · 支持多种媒介模拟 · 释放创作灵感</div>
+
+        <div class="prompt-group">
+          <label>💡 描述你的艺术构想</label>
+          <textarea class="prompt-input" placeholder="例如：一只猫在月光下，梵高星空风格，厚重油画笔触，漩涡状云彩，蓝色与金色调...">一只孤独的猫坐在窗台上，月光洒落，梵高《星空》风格，漩涡笔触，厚重的油画质感，蓝金配色</textarea>
+        </div>
+
+        <div class="param-section">
+          <div class="param-section-title">🖼️ 艺术流派</div>
+          <div class="chip-group" id="creative-movement">
+            <button class="chip" data-val="impressionism">印象派</button>
+            <button class="chip selected" data-val="expressionism">表现主义</button>
+            <button class="chip" data-val="surrealism">超现实主义</button>
+            <button class="chip" data-val="popart">波普艺术</button>
+            <button class="chip" data-val="cubism">立体主义</button>
+            <button class="chip" data-val="minimalism">极简主义</button>
+            <button class="chip" data-val="baroque">巴洛克</button>
+          </div>
+        </div>
+
+        <div class="param-section">
+          <div class="param-section-title">🖌️ 创作媒介</div>
+          <div class="chip-group" id="creative-medium">
+            <button class="chip selected" data-val="oil">油画</button>
+            <button class="chip" data-val="watercolor">水彩</button>
+            <button class="chip" data-val="ink">水墨</button>
+            <button class="chip" data-val="acrylic">丙烯</button>
+            <button class="chip" data-val="gouache">水粉</button>
+            <button class="chip" data-val="digital">数字绘画</button>
+            <button class="chip" data-val="collage">拼贴艺术</button>
+          </div>
+        </div>
+
+        <div class="param-section">
+          <div class="param-section-title">💭 情绪氛围</div>
+          <div class="chip-group" id="creative-mood">
+            <button class="chip" data-val="serene">宁静</button>
+            <button class="chip selected" data-val="passionate">激情</button>
+            <button class="chip" data-val="melancholy">忧郁</button>
+            <button class="chip" data-val="joyful">欢快</button>
+            <button class="chip" data-val="mysterious">神秘</button>
+            <button class="chip" data-val="dramatic">戏剧</button>
+          </div>
+        </div>
+
+        <div class="slider-group">
+          <div class="slider-label"><span>🖊️ 笔触强度</span><span class="slider-val" id="creative-stroke-val">70%</span></div>
+          <input type="range" min="0" max="100" value="70" id="creative-stroke" oninput="updateSlider('creative-stroke-val',this.value,'%')">
+        </div>
+        <div class="slider-group">
+          <div class="slider-label"><span>🎯 抽象程度</span><span class="slider-val" id="creative-abstraction-val">40%</span></div>
+          <input type="range" min="0" max="100" value="40" id="creative-abstraction" oninput="updateSlider('creative-abstraction-val',this.value,'%')">
+        </div>
+
+        <div class="toggle-row">
+          <span>🎭 多流派融合（自动混合2-3种风格）</span>
+          <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+        </div>
+        <div class="toggle-row">
+          <span>🖼️ 添加画框效果</span>
+          <div class="toggle" onclick="this.classList.toggle('on')"></div>
+        </div>
+      </div>
+
+      <!-- ===== LANDSCAPE PANEL ===== -->
+      <div class="param-panel panel-animate" id="panel-landscape" style="display:none">
+        <div class="panel-title">🏔️ 风景专区 <span style="font-size:12px;color:#10b981;font-weight:400;margin-left:auto">自然场景生成引擎</span></div>
+        <div class="panel-subtitle">覆盖全地形全气候 · 时间/季节/天气三维控制 · 摄影级光影</div>
+
+        <div class="prompt-group">
+          <label>🌍 描述你的风景</label>
+          <textarea class="prompt-input" placeholder="例如：瑞士阿尔卑斯山，秋天，黄昏金色光线，湖面倒影，广角镜头，8K超清...">北海道富良野花海，夏天午后，蓝天白云，薰衣草田与向日葵交错的丘陵，柔和自然光，广角</textarea>
+        </div>
+
+        <div class="param-section">
+          <div class="param-section-title">🏞️ 场景类型</div>
+          <div class="chip-group" id="landscape-type">
+            <button class="chip" data-val="mountain">山脉</button>
+            <button class="chip" data-val="ocean">海洋</button>
+            <button class="chip" data-val="forest">森林</button>
+            <button class="chip" data-val="desert">沙漠</button>
+            <button class="chip selected" data-val="field">花海田野</button>
+            <button class="chip" data-val="city">城市天际线</button>
+            <button class="chip" data-val="country">乡村田园</button>
+          </div>
+        </div>
+
+        <div class="param-section">
+          <div class="param-section-title">⏰ 时段</div>
+          <div class="chip-group" id="landscape-time">
+            <button class="chip" data-val="dawn">黎明</button>
+            <button class="chip" data-val="morning">清晨</button>
+            <button class="chip selected" data-val="afternoon">午后</button>
+            <button class="chip" data-val="dusk">黄昏</button>
+            <button class="chip" data-val="night">夜晚</button>
+            <button class="chip" data-val="golden">黄金时刻</button>
+          </div>
+        </div>
+
+        <div class="param-section">
+          <div class="param-section-title">🌦️ 天气</div>
+          <div class="chip-group" id="landscape-weather">
+            <button class="chip selected" data-val="clear">晴天</button>
+            <button class="chip" data-val="cloudy">多云</button>
+            <button class="chip" data-val="rain">雨天</button>
+            <button class="chip" data-val="snow">雪景</button>
+            <button class="chip" data-val="fog">雾</button>
+            <button class="chip" data-val="storm">暴风雨</button>
+          </div>
+        </div>
+
+        <div class="param-section">
+          <div class="param-section-title">🍂 季节</div>
+          <div class="chip-group" id="landscape-season">
+            <button class="chip" data-val="spring">春</button>
+            <button class="chip selected" data-val="summer">夏</button>
+            <button class="chip" data-val="autumn">秋</button>
+            <button class="chip" data-val="winter">冬</button>
+          </div>
+        </div>
+
+        <div class="select-group">
+          <label>📷 视角</label>
+          <select>
+            <option>广角 (16mm)</option>
+            <option selected>标准广角 (24mm)</option>
+            <option>航拍俯视</option>
+            <option>长焦压缩 (200mm)</option>
+            <option>超广角鱼眼</option>
+          </select>
+        </div>
+
+        <div class="slider-group">
+          <div class="slider-label"><span>☀️ 光影强度</span><span class="slider-val" id="landscape-light-val">65%</span></div>
+          <input type="range" min="0" max="100" value="65" id="landscape-light" oninput="updateSlider('landscape-light-val',this.value,'%')">
+        </div>
+
+        <div class="toggle-row">
+          <span>🌊 动态元素（流水/飘云/落叶）</span>
+          <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+        </div>
+      </div>
+
+      <!-- ===== PORTRAIT PANEL ===== -->
+      <div class="param-panel panel-animate" id="panel-portrait" style="display:none">
+        <div class="panel-title">📷 人像专区 <span style="font-size:12px;color:#f97316;font-weight:400;margin-left:auto">专业人像生成引擎</span></div>
+        <div class="panel-subtitle">专业级光影系统 · 多种摄影风格 · AI 美颜与面部重塑</div>
+
+        <div class="prompt-group">
+          <label>👤 描述你的人物</label>
+          <textarea class="prompt-input" placeholder="例如：亚洲女性，25岁，黑色长发，职业装，自信微笑，商业肖像风格，伦勃朗光...">亚洲女性，28岁，中长发，白色衬衫，温柔微笑，半身肖像，柔和自然光，浅色背景，商业写真风格</textarea>
+        </div>
+
+        <div class="param-section">
+          <div class="param-section-title">💡 光影方案</div>
+          <div class="chip-group" id="portrait-light">
+            <button class="chip" data-val="rembrandt">伦勃朗光</button>
+            <button class="chip" data-val="butterfly">蝴蝶光</button>
+            <button class="chip" data-val="loop">环形光</button>
+            <button class="chip selected" data-val="soft">柔光</button>
+            <button class="chip" data-val="split">侧光</button>
+            <button class="chip" data-val="rim">轮廓光</button>
+          </div>
+        </div>
+
+        <div class="param-section">
+          <div class="param-section-title">📸 摄影风格</div>
+          <div class="chip-group" id="portrait-style">
+            <button class="chip selected" data-val="commercial">商业写真</button>
+            <button class="chip" data-val="fashion">时尚大片</button>
+            <button class="chip" data-val="vintage">复古胶片</button>
+            <button class="chip" data-val="bw">黑白经典</button>
+            <button class="chip" data-val="artistic">艺术人像</button>
+            <button class="chip" data-val="candid">自然抓拍</button>
+          </div>
+        </div>
+
+        <div class="param-section">
+          <div class="param-section-title">🖼️ 背景</div>
+          <div class="chip-group" id="portrait-bg">
+            <button class="chip selected" data-val="solid">纯色背景</button>
+            <button class="chip" data-val="gradient">渐变背景</button>
+            <button class="chip" data-val="outdoor">户外</button>
+            <button class="chip" data-val="studio">影棚</button>
+            <button class="chip" data-val="creative">创意合成</button>
+          </div>
+        </div>
+
+        <div class="select-group">
+          <label>📐 构图</label>
+          <select>
+            <option>面部特写</option>
+            <option selected>半身肖像</option>
+            <option>3/4 身</option>
+            <option>全身</option>
+            <option>环境人像</option>
+          </select>
+        </div>
+
+        <div class="slider-group">
+          <div class="slider-label"><span>✨ AI 美颜强度</span><span class="slider-val" id="portrait-beauty-val">30%</span></div>
+          <input type="range" min="0" max="100" value="30" id="portrait-beauty" oninput="updateSlider('portrait-beauty-val',this.value,'%')">
+        </div>
+        <div class="slider-group">
+          <div class="slider-label"><span>🎞️ 胶片颗粒感</span><span class="slider-val" id="portrait-grain-val">15%</span></div>
+          <input type="range" min="0" max="100" value="15" id="portrait-grain" oninput="updateSlider('portrait-grain-val',this.value,'%')">
+        </div>
+
+        <div class="toggle-row">
+          <span>🔄 面部特征微调（眼/鼻/嘴比例）</span>
+          <div class="toggle" onclick="this.classList.toggle('on')"></div>
+        </div>
+        <div class="toggle-row">
+          <span>🎯 眼神光增强</span>
+          <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+        </div>
+      </div>
+
+      <!-- ===== PRODUCT PANEL ===== -->
+      <div class="param-panel panel-animate" id="panel-product" style="display:none">
+        <div class="panel-title">📦 产品专区 <span style="font-size:12px;color:#2563eb;font-weight:400;margin-left:auto">电商主图生成引擎</span></div>
+        <div class="panel-subtitle">批量生成电商主图 · 多角度自动渲染 · 背景智能适配 · A/B 测试</div>
+
+        <div class="prompt-group">
+          <label>🛍️ 描述你的产品</label>
+          <textarea class="prompt-input" placeholder="例如：一瓶高端香水，玻璃瓶身，金色瓶盖，白色大理石台面，柔光箱灯光，产品摄影...">一瓶透明玻璃瓶香水，银色金属喷嘴，放在白色大理石台面上，旁边有几朵白色花瓣，产品摄影，柔光箱效果</textarea>
+        </div>
+
+        <div class="param-section">
+          <div class="param-section-title">📦 产品类别</div>
+          <div class="chip-group" id="product-cat">
+            <button class="chip" data-val="3c">3C数码</button>
+            <button class="chip selected" data-val="beauty">美妆护肤</button>
+            <button class="chip" data-val="food">食品饮料</button>
+            <button class="chip" data-val="fashion">服饰配饰</button>
+            <button class="chip" data-val="home">家居用品</button>
+            <button class="chip" data-val="jewelry">珠宝首饰</button>
+          </div>
+        </div>
+
+        <div class="param-section">
+          <div class="param-section-title">🖼️ 背景类型</div>
+          <div class="chip-group" id="product-bg">
+            <button class="chip" data-val="white">纯白底</button>
+            <button class="chip selected" data-val="scene">场景化</button>
+            <button class="chip" data-val="creative-bg">创意合成</button>
+            <button class="chip" data-val="gradient-pd">渐变背景</button>
+            <button class="chip" data-val="lifestyle">生活方式</button>
+          </div>
+        </div>
+
+        <div class="param-section">
+          <div class="param-section-title">📐 拍摄角度</div>
+          <div class="chip-group" id="product-angle">
+            <button class="chip" data-val="front">正面</button>
+            <button class="chip selected" data-val="45deg">45度角</button>
+            <button class="chip" data-val="top">俯拍</button>
+            <button class="chip" data-val="macro">微距特写</button>
+            <button class="chip" data-val="floating">悬浮</button>
+          </div>
+        </div>
+
+        <div class="param-section">
+          <div class="param-section-title">💡 灯光方案</div>
+          <div class="chip-group" id="product-lighting">
+            <button class="chip selected" data-val="softbox">柔光箱</button>
+            <button class="chip" data-val="ring">环形灯</button>
+            <button class="chip" data-val="natural">自然光</button>
+            <button class="chip" data-val="dramatic-lt">戏剧光</button>
+            <button class="chip" data-val="rim-lt">轮廓光</button>
+          </div>
+        </div>
+
+        <div class="slider-group">
+          <div class="slider-label"><span>💎 产品质感增强</span><span class="slider-val" id="product-texture-val">85%</span></div>
+          <input type="range" min="0" max="100" value="85" id="product-texture" oninput="updateSlider('product-texture-val',this.value,'%')">
+        </div>
+        <div class="slider-group">
+          <div class="slider-label"><span>🔍 背景虚化程度</span><span class="slider-val" id="product-bokeh-val">50%</span></div>
+          <input type="range" min="0" max="100" value="50" id="product-bokeh" oninput="updateSlider('product-bokeh-val',this.value,'%')">
+        </div>
+
+        <div class="toggle-row">
+          <span>🔄 批量生成（一次生成4张不同角度）</span>
+          <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+        </div>
+        <div class="toggle-row">
+          <span>🧹 自动去除背景（输出透明PNG）</span>
+          <div class="toggle" onclick="this.classList.toggle('on')"></div>
+        </div>
+        <div class="toggle-row">
+          <span>📊 A/B 测试模式（生成2组对比）</span>
+          <div class="toggle" onclick="this.classList.toggle('on')"></div>
+        </div>
+      </div>
+
+      <!-- Generate button (shared, zone-specific styled) -->
+      <button class="generate-btn" style="margin-top:20px" onclick="handleGenerate()">
+        ⚡ 开始生成
+      </button>
+    </div>
+
+    <!-- RIGHT: PREVIEW -->
+    <div class="right-panel">
+      <div class="preview-card">
+        <div class="preview-header">
+          <span>🖼️ 生成预览</span>
+          <span style="font-size:11px;color:var(--text3)">1024 × 1024</span>
+        </div>
+        <div class="preview-area" id="previewArea">
+          <div class="preview-placeholder" id="previewPlaceholder">
+            <span class="ph-icon">🖼️</span>
+            <span>配置参数后开始生成</span>
+            <span style="font-size:11px;color:var(--text3)">支持 4K 超高清输出</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="info-cards">
+        <div class="info-card">
+          <div class="ic-icon">⚡</div>
+          <div class="ic-value" id="statSpeed">~8s</div>
+          <div class="ic-label">平均生成速度</div>
+        </div>
+        <div class="info-card">
+          <div class="ic-icon">🎯</div>
+          <div class="ic-value">4K</div>
+          <div class="ic-label">最高分辨率</div>
+        </div>
+        <div class="info-card">
+          <div class="ic-icon">🔧</div>
+          <div class="ic-value" id="statParams">18+</div>
+          <div class="ic-label">可调参数</div>
+        </div>
+        <div class="info-card">
+          <div class="ic-icon">📊</div>
+          <div class="ic-value">99.2%</div>
+          <div class="ic-label">用户满意度</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== ADVANTAGES ===== -->
+  <section class="advantages">
+    <div class="advantages-title">🏆 为什么选择 AI 画境？</div>
+    <div class="advantages-sub">五大专区深度优化 — 不只是"通用生成"，更懂你的领域</div>
+
+    <table class="compare-table">
+      <thead>
+        <tr>
+          <th>能力维度</th>
+          <th>🎬 动画专区</th>
+          <th>🎨 艺术专区</th>
+          <th>🏔️ 风景专区</th>
+          <th>📷 人像专区</th>
+          <th>📦 产品专区</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>垂直模型优化</td>
+          <td class="check">✓ 二次元专精</td>
+          <td class="check">✓ 流派专精</td>
+          <td class="check">✓ 场景专精</td>
+          <td class="check">✓ 人像专精</td>
+          <td class="check">✓ 电商专精</td>
+        </tr>
+        <tr>
+          <td>专属参数系统</td>
+          <td class="check">画风·角色·表情</td>
+          <td class="check">流派·媒介·情绪</td>
+          <td class="check">场景·时段·天气</td>
+          <td class="check">光影·风格·美颜</td>
+          <td class="check">品类·角度·灯光</td>
+        </tr>
+        <tr>
+          <td>角色一致性</td>
+          <td class="check">✓ 跨图保持</td>
+          <td class="cross">—</td>
+          <td class="cross">—</td>
+          <td class="partial">△ 面部相似</td>
+          <td class="cross">—</td>
+        </tr>
+        <tr>
+          <td>风格融合</td>
+          <td class="partial">△ 2种</td>
+          <td class="check">✓ 3种+</td>
+          <td class="cross">—</td>
+          <td class="partial">△ 滤镜</td>
+          <td class="cross">—</td>
+        </tr>
+        <tr>
+          <td>环境模拟</td>
+          <td class="partial">△ 基础</td>
+          <td class="cross">—</td>
+          <td class="check">✓ 时间×天气×季节</td>
+          <td class="partial">△ 背景</td>
+          <td class="check">✓ 场景化</td>
+        </tr>
+        <tr>
+          <td>光影系统</td>
+          <td class="partial">△ 2种</td>
+          <td class="partial">△ 笔触模拟</td>
+          <td class="check">✓ 自然光效</td>
+          <td class="check">✓ 6种布光</td>
+          <td class="check">✓ 5种灯效</td>
+        </tr>
+        <tr>
+          <td>批量生成</td>
+          <td class="check">✓ 多姿势</td>
+          <td class="check">✓ 多风格</td>
+          <td class="check">✓ 多视角</td>
+          <td class="check">✓ 多角度</td>
+          <td class="check">✓ A/B测试</td>
+        </tr>
+        <tr>
+          <td>后处理</td>
+          <td class="partial">线稿提取</td>
+          <td class="check">画框·签名</td>
+          <td class="check">HDR合成</td>
+          <td class="check">AI美颜·重塑</td>
+          <td class="check">去底·批量导出</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="zone-features">
+      <div class="zone-feature-card zf-anime">
+        <div class="zf-icon">🎬</div>
+        <div class="zf-name">动画专区</div>
+        <div class="zf-desc">6大主流画风引擎<br>角色一致性保持<br>表情与姿态精准控制</div>
+      </div>
+      <div class="zone-feature-card zf-creative">
+        <div class="zf-icon">🎨</div>
+        <div class="zf-name">艺术专区</div>
+        <div class="zf-desc">7大艺术流派覆盖<br>6种媒介材质模拟<br>多风格智能融合</div>
+      </div>
+      <div class="zone-feature-card zf-landscape">
+        <div class="zf-icon">🏔️</div>
+        <div class="zf-name">风景专区</div>
+        <div class="zf-desc">7类地形全覆盖<br>时段×季节×天气<br>5种镜头视角可选</div>
+      </div>
+      <div class="zone-feature-card zf-portrait">
+        <div class="zf-icon">📷</div>
+        <div class="zf-name">人像专区</div>
+        <div class="zf-desc">6种专业布光方案<br>5种摄影风格切换<br>AI美颜面部重塑</div>
+      </div>
+      <div class="zone-feature-card zf-product">
+        <div class="zf-icon">📦</div>
+        <div class="zf-name">产品专区</div>
+        <div class="zf-desc">6大品类专属优化<br>5种灯光精准模拟<br>A/B测试批量生成</div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<footer class="footer">
+  AI 画境 ImageStudio · 五大专区深度优化 · 让每一张图都专业
+</footer>
+
+<script>
+// ===== ZONE SWITCHING =====
+let currentZone = 'anime';
+
+function switchZone(zone) {
+  currentZone = zone;
+
+  // Update body class
+  document.body.className = 'zone-' + zone;
+
+  // Update tab buttons
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.classList.remove('active');
+    if (btn.dataset.zone === zone) btn.classList.add('active');
+  });
+
+  // Update panels
+  document.querySelectorAll('[id^="panel-"]').forEach(p => p.style.display = 'none');
+  const targetPanel = document.getElementById('panel-' + zone);
+  if (targetPanel) {
+    targetPanel.style.display = 'block';
+    targetPanel.classList.remove('panel-animate');
+    void targetPanel.offsetWidth;
+    targetPanel.classList.add('panel-animate');
+  }
+
+  // Update preview placeholder
+  updatePreviewPlaceholder(zone);
+
+  // Update stats
+  updateStats(zone);
+}
+
+function updatePreviewPlaceholder(zone) {
+  const ph = document.getElementById('previewPlaceholder');
+  const icons = {
+    anime: { icon: '🎬', text: 'AI 动漫角色生成中...', sub: '赛璐璐 · 吉卜力 · 新海诚' },
+    creative: { icon: '🎨', text: 'AI 艺术创作中...', sub: '油画 · 水彩 · 印象派' },
+    landscape: { icon: '🏔️', text: 'AI 风景渲染中...', sub: '4K 超高清 · 自然光影' },
+    portrait: { icon: '📷', text: 'AI 人像拍摄中...', sub: '专业布光 · AI 美颜' },
+    product: { icon: '📦', text: 'AI 产品渲染中...', sub: '电商主图 · 批量生成' }
+  };
+  const d = icons[zone];
+  ph.innerHTML = `<span class="ph-icon">${d.icon}</span><span>${d.text}</span><span style="font-size:11px;color:var(--text3)">${d.sub}</span>`;
+}
+
+function updateStats(zone) {
+  const speeds = { anime: '~6s', creative: '~10s', landscape: '~8s', portrait: '~7s', product: '~5s' };
+  const params = { anime: '21+', creative: '19+', landscape: '23+', portrait: '20+', product: '22+' };
+  document.getElementById('statSpeed').textContent = speeds[zone];
+  document.getElementById('statParams').textContent = params[zone];
+}
+
+function updateSlider(valId, value, suffix) {
+  document.getElementById(valId).textContent = value + suffix;
+}
+
+// ===== CHIP SELECTION =====
+document.querySelectorAll('.chip-group').forEach(group => {
+  group.addEventListener('click', (e) => {
+    if (e.target.classList.contains('chip')) {
+      group.querySelectorAll('.chip').forEach(c => c.classList.remove('selected'));
+      e.target.classList.add('selected');
+    }
+  });
+});
+
+// ===== GENERATE =====
+function handleGenerate() {
+  const previewArea = document.getElementById('previewArea');
+  const ph = document.getElementById('previewPlaceholder');
+  ph.innerHTML = `<span class="ph-icon" style="font-size:36px">⏳</span><span>正在生成中...</span>`;
+
+  setTimeout(() => {
+    const results = {
+      anime: { icon: '🎬', text: '✅ 生成完成！', sub: '日系赛璐璐风格 · 2张变体' },
+      creative: { icon: '🎨', text: '✅ 生成完成！', sub: '表现主义油画 · 3张变体' },
+      landscape: { icon: '🏔️', text: '✅ 生成完成！', sub: '4K 超高清 · 2张变体' },
+      portrait: { icon: '📷', text: '✅ 生成完成！', sub: '商业写真风格 · 3张变体' },
+      product: { icon: '📦', text: '✅ 生成完成！', sub: '批量4张 · A/B测试完成' }
+    };
+    const r = results[currentZone];
+    ph.innerHTML = `<span class="ph-icon">${r.icon}</span><span style="color:#10b981;font-weight:600">${r.text}</span><span style="font-size:11px;color:var(--text3)">${r.sub}</span>`;
+  }, 1500);
+}
+</script>
+
+</body>
+</html>
