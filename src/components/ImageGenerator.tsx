@@ -99,6 +99,7 @@ export default function ImageGenerator() {
   const [generationStatus, setGenerationStatus] = useState("");
   const [generationProgress, setGenerationProgress] = useState(0);
   const [generatedImage, setGeneratedImage] = useState<GeneratedImage | null>(null);
+  const [generationError, setGenerationError] = useState<string | null>(null);
   const [showModelDropdown, setShowModelDropdown] = useState(false);
   const [credits, setCredits] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -146,6 +147,7 @@ export default function ImageGenerator() {
     setGenerationStatus("Starting generation...");
     setGenerationProgress(0);
     setGeneratedImage(null);
+    setGenerationError(null);
 
     try {
       const response = await fetch("/api/generate", {
@@ -224,7 +226,9 @@ export default function ImageGenerator() {
       }
     } catch (error) {
       console.error("Generation error:", error);
-      setGenerationStatus(error instanceof Error ? error.message : "Generation failed");
+      const errorMsg = error instanceof Error ? error.message : "Generation failed";
+      setGenerationStatus(errorMsg);
+      setGenerationError(errorMsg);
     } finally {
       setIsGenerating(false);
     }
@@ -523,6 +527,14 @@ export default function ImageGenerator() {
                 className="bg-gradient-to-r from-purple-600 to-pink-500 h-2 rounded-full transition-all duration-300"
                 style={{ width: `${generationProgress}%` }}
               />
+            </div>
+          )}
+
+          {/* Error Message */}
+          {generationError && !isGenerating && (
+            <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-sm text-red-700 font-medium">Generation Failed</p>
+              <p className="text-sm text-red-600 mt-1">{generationError}</p>
             </div>
           )}
         </div>

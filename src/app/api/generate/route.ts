@@ -9,6 +9,7 @@ import { z } from "zod";
 const GenerateRequestSchema = z.object({
   prompt: z.string().min(1).max(2000),
   negativePrompt: z.string().max(1000).optional(),
+  defaultNegativePrompt: z.string().optional(),  // Auto-injected from zone config
   model: z.string().optional(),
   aspectRatio: z.string().optional(),
   style: z.string().optional(),
@@ -60,6 +61,7 @@ export async function POST(request: NextRequest) {
   const {
     prompt,
     negativePrompt,
+    defaultNegativePrompt,
     model,
     aspectRatio = "1:1",
     style,
@@ -105,6 +107,7 @@ export async function POST(request: NextRequest) {
         const result = await runGenerationWorkflow({
           prompt,
           negativePrompt,
+          defaultNegativePrompt,
           modelName: model,
           aspectRatio,
           style,

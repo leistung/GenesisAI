@@ -1,4 +1,3 @@
-import OpenAI from "openai";
 import { prisma } from "./db";
 import { logger } from "./logger";
 
@@ -95,16 +94,29 @@ export async function getActiveAIModels() {
   }
 }
 
-// Map aspect ratio to size string for OpenAI-compatible API
-function mapAspectRatioToSize(aspectRatio: string): string {
+// Map aspect ratio to DashScope size string (width*height format)
+function mapAspectRatioToSize(aspectRatio: string, modelId: string): string {
+  // qwen-image-2.0 series uses different default sizes
+  if (modelId.includes("qwen-image-2.0")) {
+    const sizeMap: Record<string, string> = {
+      "1:1": "2048*2048",
+      "16:9": "2688*1536",
+      "9:16": "1536*2688",
+      "4:3": "2368*1728",
+      "3:4": "1728*2368",
+    };
+    return sizeMap[aspectRatio] || "2048*2048";
+  }
+
+  // qwen-image-max, qwen-image-plus, qwen-image-edit series
   const sizeMap: Record<string, string> = {
-    "1:1": "1024x1024",
-    "16:9": "1536x864",
-    "9:16": "864x1536",
-    "4:3": "1152x864",
-    "3:4": "864x1152",
+    "1:1": "1328*1328",
+    "16:9": "1664*928",
+    "9:16": "928*1664",
+    "4:3": "1472*1104",
+    "3:4": "1104*1472",
   };
-  return sizeMap[aspectRatio] || "1024x1024";
+  return sizeMap[aspectRatio] || "1328*1328";
 }
 
 // Build the full prompt with style enhancement
@@ -132,12 +144,131 @@ function buildPrompt(
 }
 
 /**
- * Generate image using OpenAI-compatible API (DashScope, etc.)
- * Uses LangChain-compatible approach with OpenAI SDK
+ * Call DashScope multimodal-generation API (native HTTP)
+ * Used for both text-to-image and image-edit models
+ */
+async function callDashScopeAPI(
+  modelConfig: AIModelConfig,
+  prompt: string,
+  negativePrompt: string | undefined,
+  size: string,
+  referenceImage?: string
+): Promise<Omit<GenerationResult, "creditsCost" | "modelUsed">> {
+  // DashScope native API endpoint
+  const url = "https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation";
+
+  // Build messages content
+  const content: Array<{ text?: string; image?: string }> = [];
+
+  // If reference image provided, add it first
+  if (referenceImage) {
+    content.push({ image: referenceImage });
+  }
+
+  // Add the text prompt
+  content.push({ text: prompt });
+
+  // Build request body following DashScope API spec
+  const requestBody: Record<string, unknown> = {
+    model: modelConfig.modelId,
+    input: {
+      messages: [
+        {
+          role: "user",
+          content,
+        },
+      ],
+    },
+    parameters: {
+      size,
+      n: 1,
+    },
+  };
+
+  // Add negative prompt if provided
+  if (negativePrompt) {
+    (requestBody.parameters as Record<string, unknown>).negative_prompt = negativePrompt;
+  }
+
+  logger.info("Calling DashScope API", {
+    model: modelConfig.modelId,
+    size,
+    hasReferenceImage: !!referenceImage,
+    hasNegativePrompt: !!negativePrompt,
+  });
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${modelConfig.apiKey}`,
+    },
+    body: JSON.stringify(requestBody),
+  });
+
+  if (!response.ok) {
+    let errorMsg = `DashScope API error: ${response.status}`;
+    try {
+      const errorBody = await response.json();
+      errorMsg = errorBody.message || errorBody.error?.message || errorMsg;
+      logger.error("DashScope API error response", { status: response.status, body: errorBody });
+    } catch {
+      // Could not parse error body
+    }
+    return { success: false, error: errorMsg };
+  }
+
+  const data = await response.json();
+
+  // Check for API-level errors
+  if (data.code) {
+    return { success: false, error: data.message || `DashScope error: ${data.code}` };
+  }
+
+  // Extract image URL from response
+  // Response format: { output: { choices: [{ message: { content: [{ image: "url" }] } } ] } }
+  const choices = data.output?.choices;
+  if (!choices || choices.length === 0) {
+    return { success: false, error: "No image generated (empty choices in response)" };
+  }
+
+  const messageContent = choices[0]?.message?.content;
+  if (!messageContent || messageContent.length === 0) {
+    return { success: false, error: "No content in API response" };
+  }
+
+  // Find the image in the content array
+  const imageItem = messageContent.find((item: { image?: string }) => item.image);
+  if (!imageItem?.image) {
+    return { success: false, error: "No image URL found in API response" };
+  }
+
+  const imageUrl = imageItem.image as string;
+
+  // Download the image to get the buffer (URL is temporary, valid for 24 hours)
+  try {
+    const imageResponse = await fetch(imageUrl);
+    if (imageResponse.ok) {
+      const arrayBuffer = await imageResponse.arrayBuffer();
+      const imageBuffer = Buffer.from(arrayBuffer);
+      return { success: true, imageUrl, imageBuffer };
+    }
+  } catch (downloadError) {
+    logger.warn("Failed to download generated image, returning URL only", {
+      error: String(downloadError),
+    });
+  }
+
+  return { success: true, imageUrl };
+}
+
+/**
+ * Generate image using DashScope native API
  */
 export async function generateImage(params: {
   prompt: string;
   negativePrompt?: string;
+  defaultNegativePrompt?: string;
   modelName?: string;
   aspectRatio?: string;
   style?: string;
@@ -149,6 +280,7 @@ export async function generateImage(params: {
   const {
     prompt,
     negativePrompt,
+    defaultNegativePrompt,
     modelName,
     aspectRatio = "1:1",
     style,
@@ -199,48 +331,43 @@ export async function generateImage(params: {
     };
   }
 
-  try {
-    // Create OpenAI client with model-specific configuration
-    const client = new OpenAI({
-      apiKey: modelConfig.apiKey,
-      baseURL: modelConfig.baseUrl,
-    });
+  // Combine negative prompts: user-provided takes priority, style default as fallback
+  const effectiveNegativePrompt = negativePrompt || defaultNegativePrompt || undefined;
 
-    const size = mapAspectRatioToSize(aspectRatio);
+  try {
+    const size = mapAspectRatioToSize(aspectRatio, modelConfig.modelId);
 
     logger.info("Generating image", {
       model: modelConfig.name,
       modelId: modelConfig.modelId,
+      provider: modelConfig.provider,
       promptLength: enhancedPrompt.length,
+      hasNegativePrompt: !!effectiveNegativePrompt,
       size,
       hasReferenceImage: !!referenceImage,
     });
 
-    let result;
-
-    if (referenceImage && modelConfig.supportsImageEdit) {
-      // Image edit mode: use chat completion with image input
-      result = await generateWithImageEdit(
-        client,
+    // Route based on provider
+    if (modelConfig.provider === "dashscope") {
+      const result = await callDashScopeAPI(
         modelConfig,
         enhancedPrompt,
-        referenceImage,
-        size
+        effectiveNegativePrompt,
+        size,
+        referenceImage
       );
-    } else {
-      // Text-to-image mode
-      result = await generateTextToImage(
-        client,
-        modelConfig,
-        enhancedPrompt,
-        negativePrompt,
-        size
-      );
+      return {
+        ...result,
+        creditsCost: modelConfig.creditsCost,
+        modelUsed: modelConfig.name,
+      };
     }
 
+    // Fallback for other providers (not yet implemented)
     return {
-      ...result,
-      creditsCost: modelConfig.creditsCost,
+      success: false,
+      error: `Provider '${modelConfig.provider}' is not supported yet`,
+      creditsCost: 0,
       modelUsed: modelConfig.name,
     };
   } catch (error) {
@@ -257,131 +384,6 @@ export async function generateImage(params: {
   }
 }
 
-// Text-to-image generation using OpenAI-compatible API
-async function generateTextToImage(
-  client: OpenAI,
-  modelConfig: AIModelConfig,
-  prompt: string,
-  negativePrompt?: string,
-  size?: string
-): Promise<Omit<GenerationResult, "creditsCost" | "modelUsed">> {
-  try {
-    // Use OpenAI images.generate endpoint (compatible with DashScope)
-    const response = await client.images.generate({
-      model: modelConfig.modelId,
-      prompt,
-      n: 1,
-      size: (size || "1024x1024") as "1024x1024" | "1536x864" | "864x1536" | "1152x864" | "864x1152",
-      response_format: "b64_json",
-    });
-
-    const imageData = response.data?.[0];
-    if (!imageData) {
-      return { success: false, error: "No image data returned from API" };
-    }
-
-    // If b64_json format, convert to buffer
-    if (imageData.b64_json) {
-      const imageBuffer = Buffer.from(imageData.b64_json, "base64");
-      return { success: true, imageBuffer };
-    }
-
-    // If URL format, return the URL
-    if (imageData.url) {
-      return { success: true, imageUrl: imageData.url };
-    }
-
-    return { success: false, error: "Unexpected response format from API" };
-  } catch (error) {
-    // Handle DashScope-specific error format
-    if (error instanceof OpenAI.APIError) {
-      const message = error.error?.message || error.message || "API error";
-      return { success: false, error: `API error: ${message}` };
-    }
-    throw error;
-  }
-}
-
-// Image edit with reference image using chat completion
-async function generateWithImageEdit(
-  client: OpenAI,
-  modelConfig: AIModelConfig,
-  prompt: string,
-  referenceImage: string,
-  size?: string
-): Promise<Omit<GenerationResult, "creditsCost" | "modelUsed">> {
-  try {
-    // For image editing, use chat completions with vision
-    // The reference image is sent as a base64 data URL
-    const response = await client.chat.completions.create({
-      model: modelConfig.modelId,
-      messages: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "image_url",
-              image_url: { url: referenceImage },
-            },
-            {
-              type: "text",
-              text: prompt,
-            },
-          ],
-        },
-      ],
-      max_tokens: 4096,
-    });
-
-    // Extract image URL from response
-    const content = response.choices?.[0]?.message?.content;
-    if (!content) {
-      return { success: false, error: "No content in response" };
-    }
-
-    // Try to extract image URL from markdown or JSON in response
-    const urlMatch = content.match(/https?:\/\/[^\s"')\]]+\.(png|jpg|jpeg|webp)/i);
-    if (urlMatch) {
-      return { success: true, imageUrl: urlMatch[0] };
-    }
-
-    // If the response contains base64 data
-    const base64Match = content.match(/data:image\/[^;]+;base64,[A-Za-z0-9+/=]+/);
-    if (base64Match) {
-      const base64Data = base64Match[0].split(",")[1];
-      const imageBuffer = Buffer.from(base64Data, "base64");
-      return { success: true, imageBuffer };
-    }
-
-    // Fallback: use the images.generate endpoint with the reference
-    // Some models support image editing through the images endpoint
-    const imageResponse = await client.images.generate({
-      model: modelConfig.modelId,
-      prompt,
-      n: 1,
-      size: (size || "1024x1024") as "1024x1024",
-      response_format: "b64_json",
-    });
-
-    const imageData = imageResponse.data?.[0];
-    if (imageData?.b64_json) {
-      const imageBuffer = Buffer.from(imageData.b64_json, "base64");
-      return { success: true, imageBuffer };
-    }
-    if (imageData?.url) {
-      return { success: true, imageUrl: imageData.url };
-    }
-
-    return { success: false, error: "Could not extract image from response" };
-  } catch (error) {
-    if (error instanceof OpenAI.APIError) {
-      const message = error.error?.message || error.message || "API error";
-      return { success: false, error: `API error: ${message}` };
-    }
-    throw error;
-  }
-}
-
 /**
  * LangGraph-style workflow for image generation
  * Orchestrates the full generation pipeline:
@@ -394,6 +396,7 @@ async function generateWithImageEdit(
 export async function runGenerationWorkflow(params: {
   prompt: string;
   negativePrompt?: string;
+  defaultNegativePrompt?: string;
   modelName?: string;
   aspectRatio?: string;
   style?: string;

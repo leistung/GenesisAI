@@ -39,7 +39,7 @@ import {
   Frame,
 } from "lucide-react";
 import Link from "next/link";
-import { StyleConfig } from "@/lib/styles";
+import { StyleConfig, zoneAgentMapping } from "@/lib/styles";
 
 const aspectRatios = [
   { id: "1:1", name: "1:1", desc: "Square" },
@@ -120,6 +120,7 @@ export default function StyleGeneratorPage({ style }: StyleGeneratorPageProps) {
   const [generationStatus, setGenerationStatus] = useState("");
   const [generationProgress, setGenerationProgress] = useState(0);
   const [generatedImage, setGeneratedImage] = useState<{ id: string; url: string; prompt: string } | null>(null);
+  const [generationError, setGenerationError] = useState<string | null>(null);
   const [showNegativePrompt, setShowNegativePrompt] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [credits, setCredits] = useState<number | null>(null);
@@ -150,11 +151,16 @@ export default function StyleGeneratorPage({ style }: StyleGeneratorPageProps) {
         const data = await res.json();
         if (data.models && data.models.length > 0) {
           setAvailableModels(data.models);
-          setSelectedModel(data.models[0]);
+          // Auto-select the default model for this zone based on agent mapping
+          const zoneDefaultModel = zoneAgentMapping[style.id]?.modelName;
+          const defaultModel = data.models.find((m: { name: string }) => m.name === zoneDefaultModel)
+                         || data.models.find((m: { id: string }) => m.id === style.defaultModel)
+                         || data.models[0];
+          setSelectedModel(defaultModel);
         }
       }
     } catch {
-      const fallback = [{ id: "qwen-image-edit", name: "qwen-image-edit", displayName: "Qwen Image Edit", creditsCost: 1 }];
+      const fallback = [{ id: style.defaultModel, name: style.defaultModel, displayName: style.defaultModel, creditsCost: 1 }];
       setAvailableModels(fallback);
       setSelectedModel(fallback[0]);
     }
@@ -199,6 +205,7 @@ export default function StyleGeneratorPage({ style }: StyleGeneratorPageProps) {
     setGenerationStatus("Initializing...");
     setGenerationProgress(0);
     setGeneratedImage(null);
+    setGenerationError(null);
 
     try {
       const response = await fetch("/api/generate", {
@@ -207,6 +214,7 @@ export default function StyleGeneratorPage({ style }: StyleGeneratorPageProps) {
         body: JSON.stringify({
           prompt: prompt,
           negativePrompt: negativePrompt || undefined,
+          defaultNegativePrompt: style.negativeSystemPrompt,
           model: selectedModel?.name || selectedModel?.id || "qwen-image-edit",
           aspectRatio: selectedRatio.id,
           style: style.id,
@@ -261,7 +269,9 @@ export default function StyleGeneratorPage({ style }: StyleGeneratorPageProps) {
         }
       }
     } catch (error) {
-      setGenerationStatus(error instanceof Error ? error.message : "Generation failed");
+      const errorMsg = error instanceof Error ? error.message : "Generation failed";
+      setGenerationStatus(errorMsg);
+      setGenerationError(errorMsg);
     } finally {
       setIsGenerating(false);
     }
@@ -1091,6 +1101,14 @@ export default function StyleGeneratorPage({ style }: StyleGeneratorPageProps) {
                         <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/30 to-white/0 animate-shimmer" />
                       </div>
                     </div>
+                  </div>
+                )}
+
+                {/* Error Message */}
+                {generationError && !isGenerating && (
+                  <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-2xl">
+                    <p className="text-sm text-red-700 font-medium">Generation Failed</p>
+                    <p className="text-sm text-red-600 mt-1">{generationError}</p>
                   </div>
                 )}
 
