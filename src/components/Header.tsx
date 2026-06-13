@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSession, signOut } from "next-auth/react";
 import {
   Menu,
@@ -75,8 +75,47 @@ const navLinks = [
 
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const { data: session, status } = useSession();
+  const { data: session, status, update: updateSession } = useSession();
   const pathname = usePathname();
+  const [credits, setCredits] = useState<number | null>(null);
+
+  // Fetch real-time credits from API
+  const fetchCredits = useCallback(async () => {
+    try {
+      const res = await fetch("/api/credits");
+      if (res.ok) {
+        const data = await res.json();
+        setCredits(data.credits);
+      }
+    } catch {
+      // Ignore errors, fall back to session value
+    }
+  }, []);
+
+  // Fetch credits on mount and when session changes
+  useEffect(() => {
+    if (status === "authenticated") {
+      fetchCredits();
+    } else {
+      setCredits(null);
+    }
+  }, [status, fetchCredits]);
+
+  // Refresh credits when navigating (pathname changes)
+  useEffect(() => {
+    if (status === "authenticated") {
+      fetchCredits();
+    }
+  }, [pathname, status, fetchCredits]);
+
+  // Also try to update the JWT session so other components get fresh data
+  useEffect(() => {
+    if (credits !== null && credits !== session?.user?.credits) {
+      updateSession?.();
+    }
+  }, [credits, session?.user?.credits, updateSession]);
+
+  const displayCredits = credits ?? session?.user?.credits ?? 0;
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-xl border-b border-gray-100/50 shadow-sm">
@@ -152,7 +191,7 @@ export default function Header() {
                   className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 hover:text-purple-600 bg-gray-50 hover:bg-purple-50 rounded-full transition-all"
                 >
                   <Coins className="w-4 h-4" />
-                  <span className="font-medium">{session.user?.credits ?? 0}</span>
+                  <span className="font-medium">{displayCredits}</span>
                 </Link>
                 {session.user?.subscriptionTier && session.user.subscriptionTier !== "free" && (
                   <div className="flex items-center gap-1 px-2.5 py-1 bg-gradient-to-r from-yellow-100 to-amber-100 rounded-full border border-yellow-200">
@@ -270,7 +309,7 @@ export default function Header() {
                       className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 rounded-xl"
                     >
                       <Coins className="w-4 h-4" />
-                      Dashboard ({session.user?.credits ?? 0} credits)
+                      Dashboard ({displayCredits} credits)
                     </Link>
                     <Link
                       href="/settings"
