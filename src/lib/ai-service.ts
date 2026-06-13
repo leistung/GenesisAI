@@ -427,11 +427,11 @@ export async function runGenerationWorkflow(params: {
   }
 
   // Step 2: Upload to storage if buffer and configured
-  let imageUrl = result.imageUrl || "";
+  let imageUrl = "";
 
-  if (result.imageBuffer && userId) {
+  if (result.imageBuffer) {
     const { uploadImage, generateImageKey, isStorageConfigured } = await import("./storage");
-    if (isStorageConfigured()) {
+    if (isStorageConfigured() && userId) {
       const imageId = crypto.randomUUID();
       const key = generateImageKey(userId, imageId);
       const uploadedUrl = await uploadImage(result.imageBuffer, key, "image/png");
@@ -441,10 +441,16 @@ export async function runGenerationWorkflow(params: {
     }
   }
 
-  // If we have a buffer but no storage, convert to data URL (temporary)
+  // If no S3 URL, convert buffer to base64 data URL for permanent storage
+  // (DashScope URLs expire after 24 hours, so we can't rely on them)
   if (!imageUrl && result.imageBuffer) {
     const base64 = result.imageBuffer.toString("base64");
     imageUrl = `data:image/png;base64,${base64}`;
+  }
+
+  // Fallback: use the original URL if we have no buffer (shouldn't happen normally)
+  if (!imageUrl) {
+    imageUrl = result.imageUrl || "";
   }
 
   // Step 3: Save to database
@@ -460,6 +466,7 @@ export async function runGenerationWorkflow(params: {
       lighting: params.lighting,
       composition: params.composition,
       imageUrl,
+      referenceImage: params.referenceImage || null,
       isPublic: !userId,
     },
   });

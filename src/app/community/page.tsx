@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import Image from "next/image";
 import { Globe, Palette, Camera, Mountain, Lightbulb, ShoppingBag, Download, Loader2, Heart, Bookmark as BookmarkIcon } from "lucide-react";
+import ImageDetailModal from "@/components/ImageDetailModal";
 
 const styleFilters = [
   { id: "all", name: "All Styles", icon: Globe },
@@ -33,6 +34,7 @@ export default function CommunityPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [likedImages, setLikedImages] = useState<Set<string>>(new Set());
   const [bookmarkedImages, setBookmarkedImages] = useState<Set<string>>(new Set());
+  const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchImages();
@@ -185,7 +187,8 @@ export default function CommunityPage() {
             {images.map((image) => (
               <div
                 key={image.id}
-                className="group relative bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-200 hover:shadow-lg transition-shadow"
+                className="group relative bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-200 hover:shadow-lg transition-shadow cursor-pointer"
+                onClick={() => setSelectedImageId(image.id)}
               >
                 <div className="relative aspect-square">
                   <Image
@@ -197,7 +200,7 @@ export default function CommunityPage() {
                   />
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-colors flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
                     <button
-                      onClick={() => downloadImage(image.imageUrl, image.prompt)}
+                      onClick={(e) => { e.stopPropagation(); downloadImage(image.imageUrl, image.prompt); }}
                       className="p-2.5 bg-white rounded-lg hover:bg-gray-100 transition-colors"
                       title="Download"
                     >
@@ -206,7 +209,7 @@ export default function CommunityPage() {
                     {session?.user && (
                       <>
                         <button
-                          onClick={() => toggleLike(image.id)}
+                          onClick={(e) => { e.stopPropagation(); toggleLike(image.id); }}
                           className={`p-2.5 rounded-lg transition-colors ${
                             likedImages.has(image.id)
                               ? "bg-red-500 text-white"
@@ -217,7 +220,7 @@ export default function CommunityPage() {
                           <Heart className={`w-5 h-5 ${likedImages.has(image.id) ? "fill-current" : ""}`} />
                         </button>
                         <button
-                          onClick={() => toggleBookmark(image.id)}
+                          onClick={(e) => { e.stopPropagation(); toggleBookmark(image.id); }}
                           className={`p-2.5 rounded-lg transition-colors ${
                             bookmarkedImages.has(image.id)
                               ? "bg-purple-500 text-white"
@@ -271,6 +274,13 @@ export default function CommunityPage() {
           </div>
         )}
       </main>
+
+      <ImageDetailModal
+        imageId={selectedImageId}
+        onClose={() => setSelectedImageId(null)}
+        currentUserId={session?.user?.id as string | undefined}
+        onUpdate={fetchImages}
+      />
     </div>
   );
 }

@@ -36,6 +36,7 @@ model User {
   orders        Order[]
   bookmarks     Bookmark[]
   likes         Like[]
+  comments      Comment[]
 
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -79,26 +80,28 @@ model VerificationToken {
 
 // Generated images
 model Image {
-  id          String   @id @default(cuid())
-  userId      String?
-  prompt      String
-  negativePrompt String?
-  model       String
-  aspectRatio String
-  style       String?
-  color       String?
-  lighting    String?
-  composition String?
-  imageUrl    String
-  thumbnailUrl String?
-  isPublic    Boolean  @default(false)
-  likes       Int      @default(0)
+  id              String   @id @default(cuid())
+  userId          String?
+  prompt          String
+  negativePrompt  String?
+  model           String
+  aspectRatio     String
+  style           String?
+  color           String?
+  lighting        String?
+  composition     String?
+  imageUrl        String
+  thumbnailUrl    String?
+  referenceImage  String?   // Base64 data URL of the uploaded reference image
+  isPublic        Boolean   @default(false)
+  likes           Int       @default(0)
   
-  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-  bookmarks   Bookmark[]
-  likeRecords Like[]
+  user            User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  bookmarks       Bookmark[]
+  likeRecords     Like[]
+  comments        Comment[]
 
-  createdAt   DateTime @default(now())
+  createdAt       DateTime  @default(now())
 }
 
 // Orders for Creem payments
@@ -159,6 +162,23 @@ model Bookmark {
   createdAt DateTime @default(now())
   
   @@unique([userId, imageId])
+}
+
+// Comments on images
+model Comment {
+  id        String   @id @default(cuid())
+  userId    String
+  imageId   String
+  content   String
+  parentId  String?  // For replies: references another Comment's id
+  
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  image     Image    @relation(fields: [imageId], references: [id], onDelete: Cascade)
+  parent    Comment? @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies   Comment[] @relation("CommentReplies")
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // AI Model configurations (admin configurable)

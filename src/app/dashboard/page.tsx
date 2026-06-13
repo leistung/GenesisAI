@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
+import ImageDetailModal from "@/components/ImageDetailModal";
 
 interface UserImage {
   id: string;
@@ -35,6 +36,7 @@ export default function DashboardPage() {
   const [credits, setCredits] = useState<number>(0);
   const [subscriptionTier, setSubscriptionTier] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+  const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
 
   useEffect(() => {
     if (toast) {
@@ -265,7 +267,7 @@ export default function DashboardPage() {
             <>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 p-6">
                 {images.map((image) => (
-                  <div key={image.id} className="group relative bg-gray-100 rounded-xl overflow-hidden aspect-square">
+                  <div key={image.id} className="group relative bg-gray-100 rounded-xl overflow-hidden aspect-square cursor-pointer" onClick={() => setSelectedImageId(image.id)}>
                     <Image
                       src={image.imageUrl}
                       alt={image.prompt}
@@ -275,14 +277,14 @@ export default function DashboardPage() {
                     />
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-colors flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
                       <button
-                        onClick={() => downloadImage(image.imageUrl, image.prompt)}
+                        onClick={(e) => { e.stopPropagation(); downloadImage(image.imageUrl, image.prompt); }}
                         className="p-2 bg-white rounded-lg hover:bg-gray-100 transition-colors"
                         title="Download"
                       >
                         <Download className="w-5 h-5 text-gray-900" />
                       </button>
                       <button
-                        onClick={() => deleteImage(image.id)}
+                        onClick={(e) => { e.stopPropagation(); deleteImage(image.id); }}
                         className="p-2 bg-red-500 rounded-lg hover:bg-red-600 transition-colors"
                         title="Delete"
                       >
@@ -322,6 +324,13 @@ export default function DashboardPage() {
           )}
         </div>
       </main>
+
+      <ImageDetailModal
+        imageId={selectedImageId}
+        onClose={() => setSelectedImageId(null)}
+        currentUserId={session?.user?.id}
+        onUpdate={fetchData}
+      />
     </div>
   );
 }
