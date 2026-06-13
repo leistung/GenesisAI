@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useSession, signOut } from "next-auth/react";
 import {
   Menu,
@@ -75,45 +75,23 @@ const navLinks = [
 
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const { data: session, status, update: updateSession } = useSession();
+  const { data: session, status } = useSession();
   const pathname = usePathname();
   const [credits, setCredits] = useState<number | null>(null);
 
-  // Fetch real-time credits from API
-  const fetchCredits = useCallback(async () => {
-    try {
-      const res = await fetch("/api/credits");
-      if (res.ok) {
-        const data = await res.json();
-        setCredits(data.credits);
-      }
-    } catch {
-      // Ignore errors, fall back to session value
-    }
-  }, []);
-
-  // Fetch credits on mount and when session changes
+  // Fetch real-time credits from API on mount and navigation
   useEffect(() => {
-    if (status === "authenticated") {
-      fetchCredits();
-    } else {
+    if (status !== "authenticated") {
       setCredits(null);
+      return;
     }
-  }, [status, fetchCredits]);
-
-  // Refresh credits when navigating (pathname changes)
-  useEffect(() => {
-    if (status === "authenticated") {
-      fetchCredits();
-    }
-  }, [pathname, status, fetchCredits]);
-
-  // Also try to update the JWT session so other components get fresh data
-  useEffect(() => {
-    if (credits !== null && credits !== session?.user?.credits) {
-      updateSession?.();
-    }
-  }, [credits, session?.user?.credits, updateSession]);
+    fetch("/api/credits")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.credits !== undefined) setCredits(data.credits);
+      })
+      .catch(() => {});
+  }, [status, pathname]);
 
   const displayCredits = credits ?? session?.user?.credits ?? 0;
 
