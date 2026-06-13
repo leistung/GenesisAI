@@ -3,8 +3,31 @@
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import Image from "next/image";
-import { Globe, Palette, Camera, Mountain, Lightbulb, ShoppingBag, Download, Loader2, Heart, Bookmark as BookmarkIcon } from "lucide-react";
+import { Globe, Palette, Camera, Mountain, Lightbulb, ShoppingBag, Download, Loader2, Heart, Bookmark as BookmarkIcon, Image as ImageIcon } from "lucide-react";
 import ImageDetailModal from "@/components/ImageDetailModal";
+
+function ImageWithFallback({ src, alt, fill, className, unoptimized }: {
+  src: string; alt: string; fill?: boolean; className?: string; unoptimized?: boolean;
+}) {
+  const [error, setError] = useState(false);
+  if (error || !src) {
+    return (
+      <div className={`${className || ""} flex items-center justify-center bg-gray-100 text-gray-400`}>
+        <ImageIcon className="w-8 h-8" />
+      </div>
+    );
+  }
+  return (
+    <Image
+      src={src}
+      alt={alt}
+      fill={fill}
+      className={className}
+      unoptimized={unoptimized}
+      onError={() => setError(true)}
+    />
+  );
+}
 
 const styleFilters = [
   { id: "all", name: "All Styles", icon: Globe },
@@ -191,7 +214,7 @@ export default function CommunityPage() {
                 onClick={() => setSelectedImageId(image.id)}
               >
                 <div className="relative aspect-square">
-                  <Image
+                  <ImageWithFallback
                     src={image.imageUrl}
                     alt={image.prompt}
                     fill

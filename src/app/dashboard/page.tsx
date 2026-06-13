@@ -26,6 +26,29 @@ interface UserImage {
   model: string;
 }
 
+function ImageWithFallback({ src, alt, fill, className, unoptimized }: {
+  src: string; alt: string; fill?: boolean; className?: string; unoptimized?: boolean;
+}) {
+  const [error, setError] = useState(false);
+  if (error || !src) {
+    return (
+      <div className={`${className || ""} flex items-center justify-center bg-gray-100 text-gray-400`}>
+        <ImageIcon className="w-8 h-8" />
+      </div>
+    );
+  }
+  return (
+    <Image
+      src={src}
+      alt={alt}
+      fill={fill}
+      className={className}
+      unoptimized={unoptimized}
+      onError={() => setError(true)}
+    />
+  );
+}
+
 export default function DashboardPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -70,6 +93,8 @@ export default function DashboardPage() {
         const data = await imagesRes.json();
         setImages(data.images);
         setNextCursor(data.nextCursor);
+      } else {
+        console.error("Failed to fetch images:", imagesRes.status);
       }
     } catch (error) {
       console.error("Error fetching data:", error);
@@ -268,7 +293,7 @@ export default function DashboardPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 p-6">
                 {images.map((image) => (
                   <div key={image.id} className="group relative bg-gray-100 rounded-xl overflow-hidden aspect-square cursor-pointer" onClick={() => setSelectedImageId(image.id)}>
-                    <Image
+                    <ImageWithFallback
                       src={image.imageUrl}
                       alt={image.prompt}
                       fill

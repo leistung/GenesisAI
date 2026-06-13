@@ -54,8 +54,15 @@ export async function GET(request: NextRequest) {
 
   const session = await auth();
   if (!session?.user?.id) {
+    logger.warn("Images API: unauthorized access attempt", {
+      hasSession: !!session,
+      hasUser: !!session?.user,
+      hasUserId: !!session?.user?.id,
+    });
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  logger.info("Images API: fetching user images", { userId: session.user.id });
 
   try {
     const images = await prisma.image.findMany({
