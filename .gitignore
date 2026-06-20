@@ -30,8 +30,15 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
+# 环境变量文件 — 永远不要提交（只保留 .env.example 作为模板）
+.env
+.env.local
+.env.*.local
+.env.development
+.env.production
+.env.test
+# 仅保留模板文件供团队参考
+!.env.example
 
 # vercel
 .vercel
@@ -43,3 +50,27 @@ next-env.d.ts
 # prisma
 prisma/dev.db
 prisma/dev.db-journal
+
+# 敏感文件 — 永远不要提交
+cookies.txt
+*.cookie
+*.session
+*.pem
+*.key
+*.p12
+*.pfx
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# 日志
+*.log
+logs/
+
+# 临时文件
+*.tmp
+*.bak
+*.cache

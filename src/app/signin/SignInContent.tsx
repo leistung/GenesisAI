@@ -46,7 +46,13 @@ function Toast({ message, type, onClose }: { message: string; type: "error" | "s
   );
 }
 
-export default function SignInContent({ mode = "login" }: { mode?: "login" | "register" }) {
+export default function SignInContent({
+  mode = "login",
+  googleEnabled = false,
+}: {
+  mode?: "login" | "register";
+  googleEnabled?: boolean;
+}) {
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -56,27 +62,24 @@ export default function SignInContent({ mode = "login" }: { mode?: "login" | "re
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [toast, setToast] = useState("");
+  // Check for NextAuth error in URL
+  const urlError = searchParams.get("error");
+
+  const initialToast = urlError
+    ? urlError === "CredentialsSignin"
+      ? "Invalid email or password"
+      : urlError === "Configuration"
+      ? "Server configuration error, please try again later"
+      : "Authentication failed, please try again"
+    : "";
+
+  const [toast, setToast] = useState(initialToast);
   const [toastType, setToastType] = useState<"error" | "success">("error");
   const [loading, setLoading] = useState(false);
 
   const callbackUrl = searchParams.get("callbackUrl") || "/";
 
-  // Check for NextAuth error in URL
-  const urlError = searchParams.get("error");
-
-  useEffect(() => {
-    if (urlError === "CredentialsSignin") {
-      setToastType("error");
-      setToast("Invalid email or password");
-    } else if (urlError === "Configuration") {
-      setToastType("error");
-      setToast("Server configuration error, please try again later");
-    } else if (urlError) {
-      setToastType("error");
-      setToast("Authentication failed, please try again");
-    }
-  }, [urlError]);
+  // 无需在 effect 中设置 toast，直接用 useState 初始值避免 React 19 警告
 
   const closeToast = useCallback(() => setToast(""), []);
 
@@ -436,8 +439,19 @@ export default function SignInContent({ mode = "login" }: { mode?: "login" | "re
 
             {/* Google */}
             <button
-              onClick={() => signIn("google", { callbackUrl })}
-              className="w-full flex justify-center items-center gap-3 py-3 px-4 border border-gray-200 text-sm font-medium rounded-xl text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-all duration-200 hover:shadow-md"
+              onClick={() => {
+                if (!googleEnabled) {
+                  showToast("Google login is not configured yet");
+                  return;
+                }
+                signIn("google", { callbackUrl });
+              }}
+              disabled={!googleEnabled}
+              className={`w-full flex justify-center items-center gap-3 py-3 px-4 border text-sm font-medium rounded-xl transition-all duration-200 ${
+                googleEnabled
+                  ? "border-gray-200 text-gray-700 bg-white hover:bg-gray-50 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+                  : "border-gray-100 text-gray-400 bg-gray-50 cursor-not-allowed"
+              }`}
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24">
                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" />
@@ -445,7 +459,7 @@ export default function SignInContent({ mode = "login" }: { mode?: "login" | "re
                 <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
                 <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
               </svg>
-              Continue with Google
+              {googleEnabled ? "Continue with Google" : "Google login unavailable"}
             </button>
           </div>
 

@@ -2,6 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { logger } from "@/lib/logger";
 
+// 校验 URL 是否为允许的同源地址，防止开放重定向钓鱼攻击
+function isAllowedUrl(url: string | undefined | null): boolean {
+  if (!url) return false;
+  try {
+    const parsed = new URL(url);
+    const baseUrl = process.env.AUTH_URL || "http://localhost:3000";
+    const allowedHost = new URL(baseUrl).host;
+    return parsed.host === allowedHost;
+  } catch {
+    return false;
+  }
+}
+
 // POST /api/creem/checkout - Create a Creem checkout session
 export async function POST(request: NextRequest) {
   const session = await auth();
@@ -21,6 +34,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Payment system not configured" }, { status: 500 });
     }
 
+    const appBaseUrl = process.env.AUTH_URL || "http://localhost:3000";
+
+    // 校验 successUrl/cancelUrl，仅允许同源地址
+    const finalSuccessUrl = isAllowedUrl(successUrl)
+      ? successUrl!
+      : `${appBaseUrl}/dashboard?payment=success`;
+    const finalCancelUrl = isAllowedUrl(cancelUrl)
+      ? cancelUrl!
+      : `${appBaseUrl}/pricing?payment=canceled`;
+
     // Create checkout session via Creem API
     const response = await fetch("https://api.creem.io/v1/checkouts", {
       method: "POST",
@@ -30,8 +53,8 @@ export async function POST(request: NextRequest) {
       },
       body: JSON.stringify({
         product_id: productId,
-        success_url: successUrl || `${process.env.AUTH_URL || "http://localhost:3000"}/dashboard?payment=success`,
-        cancel_url: cancelUrl || `${process.env.AUTH_URL || "http://localhost:3000"}/pricing?payment=canceled`,
+        success_url: finalSuccessUrl,
+        cancel_url: finalCancelUrl,
         metadata: {
           referenceId: session.user.id,
         },

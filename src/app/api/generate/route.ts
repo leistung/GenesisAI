@@ -44,6 +44,14 @@ export async function POST(request: NextRequest) {
   const session = await auth();
   const userId = session?.user?.id;
 
+  // 强制要求登录才能生成图像，防止匿名滥用
+  if (!userId) {
+    return new Response(
+      JSON.stringify({ error: "Please sign in to generate images" }),
+      { status: 401, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
   const body = await request.json();
 
   // Validate input with Zod
@@ -75,15 +83,13 @@ export async function POST(request: NextRequest) {
   const modelConfig = await getAIModelConfig(model);
   const creditsCost = modelConfig?.creditsCost || 1;
 
-  // Check and consume credits for logged-in users
-  if (userId) {
-    const creditCheck = await checkAndConsumeCredits(userId, creditsCost);
-    if (!creditCheck.success) {
-      return new Response(
-        JSON.stringify({ error: creditCheck.error }),
-        { status: 402, headers: { "Content-Type": "application/json" } }
-      );
-    }
+  // Check and consume credits (user is guaranteed to be authenticated here)
+  const creditCheck = await checkAndConsumeCredits(userId, creditsCost);
+  if (!creditCheck.success) {
+    return new Response(
+      JSON.stringify({ error: creditCheck.error }),
+      { status: 402, headers: { "Content-Type": "application/json" } }
+    );
   }
 
   // Create SSE stream

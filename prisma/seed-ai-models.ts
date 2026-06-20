@@ -2,7 +2,12 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-const API_KEY = "";
+// API Key 不再写入数据库，运行时从环境变量读取
+// 仅在启动时校验环境变量是否配置
+if (!process.env.DASHSCOPE_API_KEY) {
+  console.warn("⚠️  DASHSCOPE_API_KEY 环境变量未设置");
+  console.warn("   AI 模型仍会种子化，但生成时需要配置该环境变量");
+}
 
 async function main() {
   const models = [
@@ -15,7 +20,7 @@ async function main() {
       displayName: "Qwen Image 2.0 Pro",
       provider: "dashscope",
       baseUrl: "https://dashscope.aliyuncs.com/api/v1",
-      apiKey: API_KEY,
+      apiKey: "",
       modelId: "qwen-image-2.0-pro",
       creditsCost: 1,
       isActive: true,
@@ -43,7 +48,7 @@ async function main() {
       displayName: "Wanx v3",
       provider: "dashscope",
       baseUrl: "https://dashscope.aliyuncs.com/api/v1",
-      apiKey: API_KEY,
+      apiKey: "",
       modelId: "wanx-v3",
       creditsCost: 2,
       isActive: true,
@@ -71,7 +76,7 @@ async function main() {
       displayName: "Qwen Image Plus",
       provider: "dashscope",
       baseUrl: "https://dashscope.aliyuncs.com/api/v1",
-      apiKey: API_KEY,
+      apiKey: "",
       modelId: "qwen-image-plus",
       creditsCost: 3,
       isActive: true,

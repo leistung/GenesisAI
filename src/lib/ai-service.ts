@@ -30,6 +30,7 @@ interface GenerationResult {
 }
 
 // Get AI model config from database
+// 注意：API Key 优先从环境变量读取，DB 中的 apiKey 字段仅作为后备（不推荐明文存储）
 export async function getAIModelConfig(modelName?: string): Promise<AIModelConfig | null> {
   try {
     const model = await prisma.aIModel.findFirst({
@@ -42,13 +43,16 @@ export async function getAIModelConfig(modelName?: string): Promise<AIModelConfi
 
     if (!model) return null;
 
+    // 优先使用环境变量中的 API Key，避免依赖 DB 中的明文密钥
+    const envApiKey = getApiKeyFromEnv(model.provider);
+
     return {
       id: model.id,
       name: model.name,
       displayName: model.displayName,
       provider: model.provider,
       baseUrl: model.baseUrl,
-      apiKey: model.apiKey,
+      apiKey: envApiKey || model.apiKey,
       modelId: model.modelId,
       creditsCost: model.creditsCost,
       supportsTextToImage: model.supportsTextToImage,
@@ -61,6 +65,22 @@ export async function getAIModelConfig(modelName?: string): Promise<AIModelConfi
   } catch (error) {
     logger.error("Failed to get AI model config", { error: String(error) });
     return null;
+  }
+}
+
+// 根据提供商从环境变量读取 API Key
+function getApiKeyFromEnv(provider: string): string | undefined {
+  switch (provider) {
+    case "dashscope":
+      return process.env.DASHSCOPE_API_KEY;
+    case "openai":
+      return process.env.OPENAI_API_KEY;
+    case "stability":
+      return process.env.STABILITY_API_KEY;
+    case "replicate":
+      return process.env.REPLICATE_API_TOKEN;
+    default:
+      return undefined;
   }
 }
 
@@ -467,7 +487,7 @@ export async function runGenerationWorkflow(params: {
       composition: params.composition,
       imageUrl,
       referenceImage: params.referenceImage || null,
-      isPublic: !userId,
+      isPublic: false,
     },
   });
 

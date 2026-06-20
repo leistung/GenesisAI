@@ -1,9 +1,32 @@
 import { PrismaClient } from "@prisma/client";
+import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
 async function main() {
   console.log("Seeding database...");
+
+  // Seed demo account for development
+  const demoEmail = "demo@genesisai.com";
+  const demoPassword = "Demo@123456";
+  const existingDemo = await prisma.user.findUnique({
+    where: { email: demoEmail },
+  });
+  if (!existingDemo) {
+    const hashedPassword = await bcrypt.hash(demoPassword, 12);
+    await prisma.user.create({
+      data: {
+        name: "Demo User",
+        email: demoEmail,
+        password: hashedPassword,
+        role: "user",
+        credits: 10,
+      },
+    });
+    console.log(`Created demo account: ${demoEmail} / ${demoPassword}`);
+  } else {
+    console.log(`Demo account already exists: ${demoEmail}`);
+  }
 
   // Seed subscription plans
   const plans = [
@@ -13,8 +36,7 @@ async function main() {
       price: 0,
       currency: "USD",
       credits: 10,
-      paddleProductId: null,
-      paddlePriceId: null,
+      creemProductId: null,
       features: JSON.stringify([
         "10 daily credits",
         "Standard quality",
@@ -28,8 +50,7 @@ async function main() {
       price: 9.99,
       currency: "USD",
       credits: 2000,
-      paddleProductId: process.env.PADDLE_PREMIUM_PRODUCT_ID,
-      paddlePriceId: process.env.PADDLE_PREMIUM_PRICE_ID,
+      creemProductId: process.env.CREEM_PREMIUM_PRODUCT_ID || null,
       features: JSON.stringify([
         "2000 monthly credits",
         "High quality",
@@ -44,8 +65,7 @@ async function main() {
       price: 29.99,
       currency: "USD",
       credits: 10000,
-      paddleProductId: process.env.PADDLE_ULTIMATE_PRODUCT_ID,
-      paddlePriceId: process.env.PADDLE_ULTIMATE_PRICE_ID,
+      creemProductId: process.env.CREEM_ULTIMATE_PRODUCT_ID || null,
       features: JSON.stringify([
         "10000 monthly credits",
         "Ultra quality",
@@ -58,18 +78,12 @@ async function main() {
   ];
 
   for (const plan of plans) {
-    const existingPlan = await prisma.plan.findFirst({
+    await prisma.plan.upsert({
       where: { name: plan.name },
+      update: plan,
+      create: plan,
     });
-
-    if (!existingPlan) {
-      await prisma.plan.create({
-        data: plan,
-      });
-      console.log(`Created plan: ${plan.displayName}`);
-    } else {
-      console.log(`Plan already exists: ${plan.displayName}`);
-    }
+    console.log(`Upserted plan: ${plan.displayName}`);
   }
 
   console.log("Database seeded successfully!");

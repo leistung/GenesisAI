@@ -3,6 +3,11 @@ import { prisma } from "@/lib/db";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { logger } from "@/lib/logger";
+import { checkRateLimit } from "@/lib/rate-limit";
+import {
+  generateEmailVerificationToken,
+  sendVerificationEmail,
+} from "@/lib/email-verification";
 
 const registerSchema = z.object({
   name: z.string().min(1, "Name is required").max(50, "Name must be 50 characters or less"),
@@ -12,6 +17,22 @@ const registerSchema = z.object({
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
+
+  // 速率限制：防止批量注册攻击
+  const rateLimit = await checkRateLimit(request);
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { error: "Too many requests. Please try again later." },
+      {
+        status: 429,
+        headers: {
+          "X-RateLimit-Limit": "10",
+          "X-RateLimit-Remaining": rateLimit.remaining.toString(),
+          "X-RateLimit-Reset": rateLimit.reset.toString(),
+        },
+      }
+    );
+  }
 
   try {
     const body = await request.json();
@@ -55,6 +76,13 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // 生成邮箱验证 token 并发送验证邮件
+    // 即使邮件服务未配置，也会生成 token（开发环境可在日志中查看链接）
+    const verification = await generateEmailVerificationToken(email);
+    if (verification) {
+      await sendVerificationEmail(email, verification.verificationUrl);
+    }
+
     const duration = Date.now() - startTime;
     logger.debug("[Register] user created successfully", {
       userId: user.id,
@@ -64,7 +92,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(
       {
-        message: "Registration successful",
+        message: "Registration successful. Please check your email to verify your account.",
         user: { id: user.id, email: user.email, name: user.name },
       },
       { status: 201 }

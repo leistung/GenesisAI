@@ -2,6 +2,14 @@ import { Suspense } from "react";
 import SignInContent from "./SignInContent";
 
 export default function SignIn() {
+  const googleClientId = process.env.GOOGLE_CLIENT_ID;
+  const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  const googleEnabled =
+    !!googleClientId &&
+    !!googleClientSecret &&
+    googleClientId !== "dummy" &&
+    googleClientSecret !== "dummy";
+
   return (
     <Suspense
       fallback={
@@ -10,7 +18,7 @@ export default function SignIn() {
         </div>
       }
     >
-      <SignInContent />
+      <SignInContent googleEnabled={googleEnabled} />
     </Suspense>
   );
 }

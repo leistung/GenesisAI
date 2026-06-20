@@ -1,16 +1,17 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { auth } from "@/lib/auth";
 
-// Routes that require authentication
+// 需要认证的路由
 const protectedRoutes = ["/dashboard", "/settings"];
 
-// Routes that should redirect away if already authenticated
+// 已登录用户应跳转走的路由
 const authRoutes = ["/signin", "/signup"];
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Skip middleware for API routes, static files, and NextAuth internals
+  // 跳过 API 路由、静态文件、NextAuth 内部路由
   if (
     pathname.startsWith("/api/") ||
     pathname.startsWith("/_next/") ||
@@ -20,16 +21,12 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Check for session token (NextAuth v5 uses session_token cookie or __Secure-session_token)
-  const sessionToken =
-    request.cookies.get("authjs.session-token")?.value ||
-    request.cookies.get("__Secure-authjs.session-token")?.value ||
-    request.cookies.get("next-auth.session-token")?.value ||
-    request.cookies.get("__Secure-next-auth.session-token")?.value;
+  // 使用 NextAuth auth() 验证会话有效性（而非仅检查 cookie 是否存在）
+  // 这样可以正确处理过期、被撤销的 token
+  const session = await auth();
+  const isAuthenticated = !!session?.user?.id;
 
-  const isAuthenticated = !!sessionToken;
-
-  // Protect routes that require authentication
+  // 保护需要认证的路由
   if (protectedRoutes.some((route) => pathname.startsWith(route))) {
     if (!isAuthenticated) {
       const signInUrl = new URL("/signin", request.url);
@@ -38,7 +35,7 @@ export function middleware(request: NextRequest) {
     }
   }
 
-  // Redirect authenticated users away from auth pages
+  // 已登录用户访问认证页面时重定向到仪表盘
   if (authRoutes.some((route) => pathname.startsWith(route))) {
     if (isAuthenticated) {
       return NextResponse.redirect(new URL("/dashboard", request.url));

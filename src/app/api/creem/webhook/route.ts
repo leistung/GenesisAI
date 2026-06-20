@@ -10,9 +10,19 @@ import { logger } from "@/lib/logger";
 function verifyCreemSignature(payload: string, signature: string): boolean {
   const webhookSecret = process.env.CREEM_WEBHOOK_SECRET;
 
+  // 生产环境强制要求 webhook secret，防止误配置导致绕过验证
   if (!webhookSecret) {
-    console.warn("Missing CREEM_WEBHOOK_SECRET, skipping verification (development only)");
-    return process.env.NODE_ENV === "development";
+    if (process.env.NODE_ENV === "production") {
+      logger.error("CREEM_WEBHOOK_SECRET 未配置，生产环境拒绝处理 webhook");
+      return false;
+    }
+    logger.warn("开发环境缺少 CREEM_WEBHOOK_SECRET，跳过验证（仅限开发）");
+    return true;
+  }
+
+  if (!signature) {
+    logger.error("缺少 creem-signature 头");
+    return false;
   }
 
   try {
@@ -23,10 +33,12 @@ function verifyCreemSignature(payload: string, signature: string): boolean {
     const signatureBuffer = Buffer.from(signature, "hex");
     const expectedBuffer = Buffer.from(expectedSignature, "hex");
 
-    return (
-      signatureBuffer.length === expectedBuffer.length &&
-      timingSafeEqual(signatureBuffer, expectedBuffer)
-    );
+    // 长度不一致直接返回 false，避免 timingSafeEqual 抛出异常
+    if (signatureBuffer.length !== expectedBuffer.length) {
+      return false;
+    }
+
+    return timingSafeEqual(signatureBuffer, expectedBuffer);
   } catch (error) {
     logger.error("Creem signature verification error", { error: String(error) });
     return false;
@@ -108,7 +120,7 @@ async function handleCheckoutCompleted(data: Record<string, unknown>) {
 
   // Find user by email or by metadata referenceId
   const referenceId = metadata?.referenceId as string | undefined;
-  let user = referenceId
+  const user = referenceId
     ? await prisma.user.findUnique({ where: { id: referenceId } })
     : await prisma.user.findUnique({ where: { email: customerEmail } });
 
@@ -192,16 +204,21 @@ async function handleSubscriptionActive(data: Record<string, unknown>) {
     }
   }
 
+  // 使用增量方式补充积分，避免覆盖用户原有积分
+  // 仅在用户当前积分低于套餐额度时补齐到套餐额度
+  const currentCredits = user.credits;
+  const creditsToAdd = Math.max(0, credits - currentCredits);
+
   await prisma.user.update({
     where: { id: user.id },
     data: {
       subscriptionTier: tier,
-      credits,
+      ...(creditsToAdd > 0 ? { credits: { increment: creditsToAdd } } : {}),
       creemSubscriptionId: data.id as string,
     },
   });
 
-  logger.info("Creem subscription activated", { userId: user.id, tier });
+  logger.info("Creem subscription activated", { userId: user.id, tier, creditsAdded: creditsToAdd });
 }
 
 // Handle subscription.paid - recurring payment succeeded
@@ -226,10 +243,16 @@ async function handleSubscriptionPaid(data: Record<string, unknown>) {
     if (plan) credits = plan.credits;
   }
 
-  await prisma.user.update({
-    where: { id: user.id },
-    data: { credits },
-  });
+  // 使用增量方式补充积分，避免覆盖用户剩余积分
+  const currentCredits = user.credits;
+  const creditsToAdd = Math.max(0, credits - currentCredits);
+
+  if (creditsToAdd > 0) {
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { credits: { increment: creditsToAdd } },
+    });
+  }
 
   // Create order record for the payment
   await prisma.order.create({
@@ -239,11 +262,11 @@ async function handleSubscriptionPaid(data: Record<string, unknown>) {
       status: "completed",
       amount: product ? (product.price as number) / 100 : 0,
       currency: product ? ((product.currency as string) || "USD").toUpperCase() : "USD",
-      creditsAdded: credits,
+      creditsAdded: creditsToAdd,
     },
   });
 
-  logger.info("Creem subscription paid", { userId: user.id });
+  logger.info("Creem subscription paid", { userId: user.id, creditsAdded: creditsToAdd });
 }
 
 // Handle subscription.canceled
@@ -328,14 +351,69 @@ async function handleSubscriptionExpired(data: Record<string, unknown>) {
 // Handle refund.created
 async function handleRefundCreated(data: Record<string, unknown>) {
   const customer = data.customer as Record<string, unknown> | undefined;
+  const order = data.order as Record<string, unknown> | undefined;
+  const product = data.product as Record<string, unknown> | undefined;
+
   if (!customer) return;
 
   const user = await prisma.user.findFirst({
     where: { creemCustomerId: customer.id as string },
+    select: { id: true, credits: true, subscriptionTier: true },
   });
 
-  if (!user) return;
+  if (!user) {
+    logger.warn("Creem refund - user not found", { customerId: customer.id as string });
+    return;
+  }
 
-  logger.info("Creem refund created", { userId: user.id });
-  // Optionally deduct credits or adjust subscription
+  // 根据产品查找对应套餐，计算应扣减的积分
+  let creditsToDeduct = 0;
+  if (product) {
+    const plan = await prisma.plan.findFirst({
+      where: { creemProductId: product.id as string },
+    });
+    if (plan) {
+      creditsToDeduct = plan.credits;
+    }
+  }
+
+  // 如果找不到套餐信息，尝试从订单记录中获取 creditsAdded
+  if (creditsToDeduct === 0 && order) {
+    const existingOrder = await prisma.order.findUnique({
+      where: { creemOrderId: order.id as string },
+      select: { creditsAdded: true },
+    });
+    if (existingOrder) {
+      creditsToDeduct = existingOrder.creditsAdded;
+    }
+  }
+
+  // 扣减积分（不能小于 0）
+  if (creditsToDeduct > 0) {
+    const newCredits = Math.max(0, user.credits - creditsToDeduct);
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { credits: newCredits },
+    });
+
+    // 记录退款订单
+    await prisma.order.create({
+      data: {
+        userId: user.id,
+        creemOrderId: `refund_${order?.id || Date.now()}`,
+        status: "refunded",
+        amount: order ? -((order.amount as number) / 100) : 0,
+        currency: order ? ((order.currency as string) || "USD").toUpperCase() : "USD",
+        creditsAdded: -creditsToDeduct,
+      },
+    });
+
+    logger.info("Creem refund processed, credits deducted", {
+      userId: user.id,
+      creditsDeducted: creditsToDeduct,
+      newCredits,
+    });
+  } else {
+    logger.info("Creem refund created, no credits to deduct", { userId: user.id });
+  }
 }

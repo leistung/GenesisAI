@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSession } from "next-auth/react";
+import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { User, Mail, Lock, Eye, EyeOff, Save, CheckCircle } from "lucide-react";
+import { User, Mail, Lock, Eye, EyeOff, Save, CheckCircle, AlertCircle } from "lucide-react";
 
 export default function SettingsPage() {
   const { data: session, status, update } = useSession();
@@ -104,10 +104,14 @@ export default function SettingsPage() {
         return;
       }
 
-      setToast({ message: "Password changed successfully", type: "success" });
+      setToast({ message: "Password changed successfully. Please sign in again.", type: "success" });
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
+      // 修改密码后强制重新登录，使旧 JWT 会话失效
+      setTimeout(() => {
+        signOut({ callbackUrl: "/signin" });
+      }, 1500);
     } catch {
       setToast({ message: "Network error", type: "error" });
     } finally {
@@ -132,7 +136,11 @@ export default function SettingsPage() {
           <div className={`flex items-center gap-2 p-4 rounded-xl ${
             toast.type === "success" ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-700 border border-red-200"
           }`}>
-            <CheckCircle className="w-5 h-5" />
+            {toast.type === "success" ? (
+              <CheckCircle className="w-5 h-5" />
+            ) : (
+              <AlertCircle className="w-5 h-5" />
+            )}
             <span className="text-sm">{toast.message}</span>
           </div>
         )}

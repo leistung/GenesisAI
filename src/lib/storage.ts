@@ -36,6 +36,8 @@ const BUCKET_NAME = process.env.S3_BUCKET_NAME || "genesisai-images";
 
 /**
  * Upload an image buffer to S3/R2 storage
+ * 注意：必须配置 S3_PUBLIC_URL 才能获得永久访问 URL
+ *       未配置时会回退到 7 天预签名 URL（不推荐生产使用）
  */
 export async function uploadImage(
   buffer: Buffer,
@@ -55,16 +57,22 @@ export async function uploadImage(
         Key: key,
         Body: buffer,
         ContentType: contentType,
+        // 生产环境推荐：设置 Cache-Control 减少重复下载费用
+        CacheControl: "public, max-age=31536000, immutable",
       })
     );
 
-    // Return the public URL
+    // 优先使用配置的公开域名（永久 URL，推荐生产环境配置）
     const publicUrl = process.env.S3_PUBLIC_URL;
     if (publicUrl) {
       return `${publicUrl}/${key}`;
     }
 
-    // Fallback: generate a presigned URL (valid for 7 days)
+    // 警告：未配置 S3_PUBLIC_URL，回退到预签名 URL（7 天后过期）
+    console.warn(
+      "⚠️  S3_PUBLIC_URL 未配置，使用预签名 URL（7 天后过期）。" +
+      "生产环境请配置 S3_PUBLIC_URL 以获得永久访问 URL。"
+    );
     const command = new GetObjectCommand({
       Bucket: BUCKET_NAME,
       Key: key,

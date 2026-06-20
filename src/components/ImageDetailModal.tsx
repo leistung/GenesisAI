@@ -46,7 +46,7 @@ interface ImageData {
     id: string;
     name: string;
     image?: string;
-  };
+  } | null;
 }
 
 interface CommentData {
@@ -112,7 +112,7 @@ export default function ImageDetailModal({
   const rafRef = useRef<number | null>(null);
 
   const isLoggedIn = !!currentUserId;
-  const isOwner = !!currentUserId && !!imageData && currentUserId === imageData.user.id;
+  const isOwner = !!currentUserId && !!imageData && currentUserId === imageData.user?.id;
 
   // Animate in/out
   useEffect(() => {
@@ -376,40 +376,50 @@ export default function ImageDetailModal({
               <div className="p-6 space-y-6">
                 {/* Author info */}
                 <div className="flex items-center gap-3">
-                  <Link href={`/community?user=${imageData.user.id}`}>
-                    <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden flex-shrink-0">
-                      {imageData.user.image ? (
-                        isDataUrl(imageData.user.image) ? (
-                          /* eslint-disable-next-line @next/next/no-img-element */
-                          <img
-                            src={imageData.user.image}
-                            alt={imageData.user.name}
-                            className="w-full h-full object-cover"
-                          />
+                  {imageData.user ? (
+                    <Link href={`/community?user=${imageData.user.id}`}>
+                      <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden flex-shrink-0">
+                        {imageData.user.image ? (
+                          isDataUrl(imageData.user.image) ? (
+                            /* eslint-disable-next-line @next/next/no-img-element */
+                            <img
+                              src={imageData.user.image}
+                              alt={imageData.user.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <Image
+                              src={imageData.user.image}
+                              alt={imageData.user.name}
+                              width={40}
+                              height={40}
+                              className="w-full h-full object-cover"
+                              unoptimized
+                            />
+                          )
                         ) : (
-                          <Image
-                            src={imageData.user.image}
-                            alt={imageData.user.name}
-                            width={40}
-                            height={40}
-                            className="w-full h-full object-cover"
-                            unoptimized
-                          />
-                        )
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-gray-500 text-sm font-medium">
-                          {imageData.user.name?.charAt(0)?.toUpperCase() || "?"}
-                        </div>
-                      )}
-                    </div>
-                  </Link>
-                  <div>
-                    <Link
-                      href={`/community?user=${imageData.user.id}`}
-                      className="text-sm font-medium text-gray-900 hover:text-purple-600 transition-colors"
-                    >
-                      {imageData.user.name || "Anonymous"}
+                          <div className="w-full h-full flex items-center justify-center text-gray-500 text-sm font-medium">
+                            {imageData.user.name?.charAt(0)?.toUpperCase() || "?"}
+                          </div>
+                        )}
+                      </div>
                     </Link>
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden flex-shrink-0 flex items-center justify-center text-gray-500 text-sm font-medium">
+                      ?
+                    </div>
+                  )}
+                  <div>
+                    {imageData.user ? (
+                      <Link
+                        href={`/community?user=${imageData.user.id}`}
+                        className="text-sm font-medium text-gray-900 hover:text-purple-600 transition-colors"
+                      >
+                        {imageData.user.name || "Anonymous"}
+                      </Link>
+                    ) : (
+                      <span className="text-sm font-medium text-gray-900">Anonymous</span>
+                    )}
                     <p className="text-xs text-gray-500">
                       {formatRelativeTime(imageData.createdAt)}
                     </p>
