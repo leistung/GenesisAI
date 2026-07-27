@@ -108,6 +108,7 @@ export default function ImageDetailModal({
   const [replyContent, setReplyContent] = useState("");
   const [submittingReply, setSubmittingReply] = useState(false);
   const [deletingCommentId, setDeletingCommentId] = useState<string | null>(null);
+  const [deletingImage, setDeletingImage] = useState(false);
   const [visible, setVisible] = useState(false);
   const rafRef = useRef<number | null>(null);
 
@@ -213,6 +214,28 @@ export default function ImageDetailModal({
       console.error("Error toggling publish:", err);
     } finally {
       setTogglingPublic(false);
+    }
+  }
+
+  // Delete image
+  async function deleteImage() {
+    if (!imageData || !isOwner) return;
+    if (!confirm("Are you sure you want to delete this image? This action cannot be undone.")) return;
+    setDeletingImage(true);
+    try {
+      const res = await fetch(`/api/images/${imageData.id}`, { method: "DELETE" });
+      if (res.ok) {
+        onUpdate?.();
+        onClose();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || "Failed to delete image");
+      }
+    } catch (err) {
+      console.error("Error deleting image:", err);
+      alert("Network error. Please try again.");
+    } finally {
+      setDeletingImage(false);
     }
   }
 
@@ -539,6 +562,22 @@ export default function ImageDetailModal({
                       />
                     </button>
                   </div>
+                )}
+
+                {/* Delete image (owner only) */}
+                {isOwner && (
+                  <button
+                    onClick={deleteImage}
+                    disabled={deletingImage}
+                    className="flex items-center justify-center gap-2 w-full py-2.5 px-4 border border-red-200 text-red-600 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
+                  >
+                    {deletingImage ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="w-4 h-4" />
+                    )}
+                    Delete Image
+                  </button>
                 )}
 
                 {/* Comments section */}

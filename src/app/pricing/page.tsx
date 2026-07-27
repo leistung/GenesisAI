@@ -10,6 +10,7 @@ export default function PricingPage() {
   const router = useRouter();
   const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("monthly");
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [apiPlans, setApiPlans] = useState<Array<{ name: string; displayName: string; price: number; currency: string; credits: number; creemProductId: string; features: string }>>([]);
   const [useApiPlans, setUseApiPlans] = useState(false);
 
@@ -47,7 +48,7 @@ export default function PricingPage() {
       price: 9.99,
       currency: "USD",
       credits: 2000,
-      creemProductId: "prod_premium",
+      creemProductId: "",
       features: ["2,000 credits per month", "All models included", "Priority queue", "No watermarks", "Fast AI Photo Editor"],
     },
     {
@@ -56,7 +57,7 @@ export default function PricingPage() {
       price: 19.99,
       currency: "USD",
       credits: 5000,
-      creemProductId: "prod_ultimate",
+      creemProductId: "",
       features: ["5,000 credits per month", "All models included", "Highest priority queue", "No watermarks", "Instant AI Photo Editor", "Early access to new features"],
     },
   ];
@@ -101,6 +102,13 @@ export default function PricingPage() {
             </button>
           </div>
         </div>
+
+        {checkoutError && (
+          <div className="mb-8 p-4 bg-red-50 border border-red-200 rounded-2xl">
+            <p className="text-sm font-medium text-red-700">Checkout Failed</p>
+            <p className="text-sm text-red-600 mt-1">{checkoutError}</p>
+          </div>
+        )}
 
         <div className="grid md:grid-cols-3 gap-8">
           {plans.map((plan) => {
@@ -165,6 +173,7 @@ export default function PricingPage() {
                         router.push("/signin?callbackUrl=/pricing");
                         return;
                       }
+                      setCheckoutError(null);
                       setLoadingPlan(plan.name);
                       try {
                         const res = await fetch("/api/creem/checkout", {
@@ -173,11 +182,13 @@ export default function PricingPage() {
                           body: JSON.stringify({ productId: plan.creemProductId }),
                         });
                         const data = await res.json();
-                        if (data.checkoutUrl) {
-                          window.location.href = data.checkoutUrl;
+                        if (!res.ok || !data.checkoutUrl) {
+                          setCheckoutError(data.error || "Failed to start checkout. Please try again.");
+                          return;
                         }
+                        window.location.href = data.checkoutUrl;
                       } catch {
-                        alert("Failed to start checkout. Please try again.");
+                        setCheckoutError("Network error. Please try again.");
                       } finally {
                         setLoadingPlan(null);
                       }

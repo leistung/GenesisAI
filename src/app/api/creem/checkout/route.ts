@@ -34,6 +34,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Payment system not configured" }, { status: 500 });
     }
 
+    const creemApiBaseUrl = process.env.CREEM_API_BASE_URL || "https://api.creem.io";
+    const isTestMode = creemApiBaseUrl.includes("test-api");
     const appBaseUrl = process.env.AUTH_URL || "http://localhost:3000";
 
     // 校验 successUrl/cancelUrl，仅允许同源地址
@@ -44,22 +46,27 @@ export async function POST(request: NextRequest) {
       ? cancelUrl!
       : `${appBaseUrl}/pricing?payment=canceled`;
 
+    // 测试模式 Creem API 不接受 cancel_url / customer_email
+    const requestBody: Record<string, unknown> = {
+      product_id: productId,
+      success_url: finalSuccessUrl,
+      metadata: {
+        referenceId: session.user.id,
+      },
+    };
+    if (!isTestMode) {
+      requestBody.cancel_url = finalCancelUrl;
+      requestBody.customer_email = session.user.email;
+    }
+
     // Create checkout session via Creem API
-    const response = await fetch("https://api.creem.io/v1/checkouts", {
+    const response = await fetch(`${creemApiBaseUrl}/v1/checkouts`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "x-api-key": creemApiKey,
       },
-      body: JSON.stringify({
-        product_id: productId,
-        success_url: finalSuccessUrl,
-        cancel_url: finalCancelUrl,
-        metadata: {
-          referenceId: session.user.id,
-        },
-        customer_email: session.user.email,
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     if (!response.ok) {

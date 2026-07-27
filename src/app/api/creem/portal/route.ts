@@ -15,6 +15,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Payment system not configured" }, { status: 500 });
     }
 
+    const creemApiBaseUrl = process.env.CREEM_API_BASE_URL || "https://api.creem.io";
+
     // Get customer ID from user
     const user = await import("@/lib/db").then((m) =>
       m.prisma.user.findUnique({
@@ -28,7 +30,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create customer portal session via Creem API
-    const response = await fetch("https://api.creem.io/v1/customers/portal", {
+    const response = await fetch(`${creemApiBaseUrl}/v1/customers/portal`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

@@ -128,6 +128,7 @@ export default function StyleGeneratorPage({ style }: StyleGeneratorPageProps) {
   const [publishing, setPublishing] = useState(false);
   const [likedWorks, setLikedWorks] = useState<Set<string>>(new Set());
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const resultRef = useRef<HTMLDivElement>(null);
 
   const sid = style.id;
 
@@ -143,6 +144,13 @@ export default function StyleGeneratorPage({ style }: StyleGeneratorPageProps) {
     fetchCommunityWorks();
     fetchModels();
   }, [session]);
+
+  // 生成成功后自动滚动到结果区域
+  useEffect(() => {
+    if (generatedImage && !isGenerating && resultRef.current) {
+      resultRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [generatedImage, isGenerating]);
 
   async function fetchModels() {
     try {
@@ -232,14 +240,20 @@ export default function StyleGeneratorPage({ style }: StyleGeneratorPageProps) {
       const decoder = new TextDecoder();
       if (!reader) throw new Error("No response stream");
 
+      let buffer = "";
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        const text = decoder.decode(value);
-        const lines = text.split("\n").filter((line) => line.startsWith("data: "));
+        buffer += decoder.decode(value, { stream: true });
+
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
         for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed.startsWith("data: ")) continue;
           try {
-            const data = JSON.parse(line.slice(6));
+            const data = JSON.parse(trimmed.slice(6));
             switch (data.status) {
               case "started":
                 setGenerationStatus(data.message);
@@ -265,6 +279,30 @@ export default function StyleGeneratorPage({ style }: StyleGeneratorPageProps) {
           } catch (e) {
             if (e instanceof SyntaxError) continue;
             throw e;
+          }
+        }
+      }
+
+      // 处理流结束时 buffer 中剩余的完整行
+      if (buffer.trim()) {
+        const trimmed = buffer.trim();
+        if (trimmed.startsWith("data: ")) {
+          try {
+            const data = JSON.parse(trimmed.slice(6));
+            if (data.status === "completed") {
+              setGenerationStatus(data.message);
+              setGenerationProgress(100);
+              setGeneratedImage(data.image);
+              if (session?.user) {
+                const creditsRes = await fetch("/api/credits");
+                const creditsData = await creditsRes.json();
+                if (creditsData.credits !== undefined) setCredits(creditsData.credits);
+              }
+            } else if (data.status === "error") {
+              throw new Error(data.message);
+            }
+          } catch (e) {
+            if (!(e instanceof SyntaxError)) throw e;
           }
         }
       }
@@ -1114,12 +1152,22 @@ export default function StyleGeneratorPage({ style }: StyleGeneratorPageProps) {
 
                 {/* Generated Result */}
                 {generatedImage && (
-                  <div className="mt-8 pt-6 border-t border-gray-100">
+                  <div
+                    ref={resultRef}
+                    className="mt-8 pt-6 border-t border-gray-100 scroll-mt-6"
+                  >
                     <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                        <Stars className="w-5 h-5 text-yellow-500" />
-                        Generated Result
-                      </h3>
+                      <div className="flex items-center gap-2">
+                        <div className={`w-8 h-8 rounded-xl bg-gradient-to-br ${style.gradient} flex items-center justify-center`}>
+                          <Stars className="w-4 h-4 text-white" />
+                        </div>
+                        <h3 className="text-lg font-semibold text-gray-900">
+                          Generated Result
+                        </h3>
+                        <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full font-medium">
+                          Done
+                        </span>
+                      </div>
                       <div className="flex items-center gap-2">
                         {session?.user && (
                           <button

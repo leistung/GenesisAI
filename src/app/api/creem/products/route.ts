@@ -31,6 +31,7 @@ export async function GET() {
           price: 9.99,
           currency: "USD",
           credits: 2000,
+          creemProductId: process.env.CREEM_PREMIUM_PRODUCT_ID || null,
           features: JSON.stringify([
             "2,000 credits per month",
             "All models included",
@@ -45,6 +46,7 @@ export async function GET() {
           price: 19.99,
           currency: "USD",
           credits: 5000,
+          creemProductId: process.env.CREEM_ULTIMATE_PRODUCT_ID || null,
           features: JSON.stringify([
             "5,000 credits per month",
             "All models included",

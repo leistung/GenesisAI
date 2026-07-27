@@ -62,12 +62,12 @@ async function main() {
     {
       name: "ultimate",
       displayName: "Ultimate",
-      price: 29.99,
+      price: 19.99,
       currency: "USD",
-      credits: 10000,
+      credits: 5000,
       creemProductId: process.env.CREEM_ULTIMATE_PRODUCT_ID || null,
       features: JSON.stringify([
-        "10000 monthly credits",
+        "5000 monthly credits",
         "Ultra quality",
         "Private images",
         "All styles",
